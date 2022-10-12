@@ -17,18 +17,19 @@ import json
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate
-
 # This file implements the full version of using region embeddings to select good source data. 
 parser = argparse.ArgumentParser()
 parser.add_argument('--scity', type=str, default='NY')
 parser.add_argument('--tcity', type=str, default='DC')
 parser.add_argument('--dataname', type=str, default='Taxi', help='Within [Bike, Taxi]')
 parser.add_argument('--datatype', type=str, default='pickup', help='Within [pickup, dropoff]')
-parser.add_argument('--batch_size', type=int, default=32)
+# 尝试减小，看现存能不能撑住
+parser.add_argument('--batch_size', type=int, default=16)
 parser.add_argument("--model", type=str, default='STNet_nobn', help='Within [STResNet, STNet, STNet_nobn]')
 parser.add_argument('--learning_rate', type=float, default=1e-3)
 parser.add_argument('--weight_decay', type=float, default=5e-5)
-parser.add_argument('--num_epochs', type=int, default=100, help='Number of source training epochs')
+# 100回合跑下来数据有问题，改成40epoch看看，论文也是这个
+parser.add_argument('--num_epochs', type=int, default=80, help='Number of source training epochs')
 parser.add_argument('--gpu', type=int, default=0)
 parser.add_argument('--seed', type=int, default=-1, help='Random seed. -1 means do not manually set. ')
 parser.add_argument('--data_amount', type=int, default=0, help='0: full data, 30/7/3 correspond to days of data')
@@ -78,7 +79,8 @@ source_data = np.load("../data/%s/%s%s_%s.npy" % (scity, dataname, scity, dataty
 lng_source, lat_source = source_data.shape[1], source_data.shape[2] 
 mask_source = source_data.sum(0) > 0
 th_mask_source = torch.Tensor(mask_source.reshape(1, lng_source, lat_source)).to(device) 
-print("%d valid regions in source" % np.sum(mask_source)) 
+print("%d valid regions in source" % np.sum(mask_source))
+# 按照百分比分配标签
 source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
 
 
@@ -128,6 +130,7 @@ transform = TfidfTransformer()
 target_norm_poi = np.array(transform.fit_transform(target_poi).todense()) 
 
 # Build graphs
+# add_self_loop 增加一个自循环，对角线的值=1
 source_prox_adj = add_self_loop(build_prox_graph(lng_source, lat_source)) 
 target_prox_adj = add_self_loop(build_prox_graph(lng_target, lat_target)) 
 source_road_adj = add_self_loop(build_road_graph(scity, lng_source, lat_source)) 
@@ -189,6 +192,7 @@ target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
 
 # build models
 # we need one embedding model, one scoring model, one prediction model
+# 图注意力
 class MVGAT(nn.Module):
     def __init__(self, num_graphs=3, num_gat_layer=2, in_dim=14, hidden_dim=64, emb_dim=32, num_heads=2, residual=True):
         super().__init__()
@@ -238,6 +242,7 @@ class MVGAT(nn.Module):
             views.append(z)
         return views
 
+# 融合模型
 class FusionModule(nn.Module):
     def __init__(self, num_graphs, emb_dim, alpha):
         super().__init__()
@@ -278,6 +283,7 @@ class FusionModule(nn.Module):
         # next_in = [(view + fused_outputs) / 2 for view in views]
         return fused_outputs, [(views[i] + fused_outputs) / 2 for i in range(self.num_graphs)]
 
+# 评分模型
 class Scoring(nn.Module):
     def __init__(self, emb_dim, source_mask, target_mask): 
         super().__init__()
@@ -300,6 +306,7 @@ class Scoring(nn.Module):
         # print(source_score)
         return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
 
+# 最大平均误差
 class MMD_loss(nn.Module):
     def __init__(self, kernel_mul = 2.0, kernel_num = 5):
         super(MMD_loss, self).__init__()
@@ -333,6 +340,7 @@ class MMD_loss(nn.Module):
         return loss
 mmd = MMD_loss()
 
+# 边类型分类器
 class EdgeTypeDiscriminator(nn.Module):
     def __init__(self, num_graphs, emb_dim):
         super().__init__()
@@ -372,10 +380,13 @@ elif args.model == 'STNet':
     net = STNet(1, 3, th_mask_target).to(device) 
     print(net) 
 
+# net估计是预测网络
 pred_optimizer = optim.Adam(net.parameters(), lr = args.learning_rate, weight_decay = args.weight_decay) 
+# 图卷积，融合，边类型分类器参数单独训练
 emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
 emb_optimizer = optim.Adam(emb_param_list, lr = args.learning_rate, weight_decay = args.weight_decay) 
-meta_optimizer = optim.Adam(scoring.parameters(), lr = args.outerlr, weight_decay = args.weight_decay) 
+# 元学习部分
+meta_optimizer = optim.Adam(scoring.parameters(), lr = args.outerlr, weight_decay = args.weight_decay)
 best_val_rmse = 999
 best_test_rmse = 999 
 best_test_mae = 999 
@@ -589,6 +600,10 @@ def meta_train_epoch(s_embs, t_embs):
     return np.mean(meta_query_losses)
 
 def train_emb_epoch():
+    """
+    训练图网络-特征网络，融合网络，边类型分类器
+    :return:
+    """
     loss_source, fused_emb_s, embs_s = forward_emb(source_graphs, source_norm_poi, source_od_adj, source_poi_cos)
     loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj, target_poi_cos)
     loss_emb = loss_source+loss_target 
@@ -617,6 +632,7 @@ def train_emb_epoch():
     loss_et = loss_et_source + loss_et_target
 
     emb_optimizer.zero_grad()
+    # 公式11
     loss = loss_emb + mmd_w * mmd_loss + et_w * loss_et
     loss.backward()
     emb_optimizer.step()
@@ -626,6 +642,7 @@ emb_losses = []
 mmd_losses = []
 edge_losses = []
 pretrain_emb_epoch = 80
+# 预训练图数据嵌入，边类型分类，节点对齐 ——> 获得区域特征
 for emb_ep in range(pretrain_emb_epoch):
     loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch()
     emb_losses.append(loss_emb_)
@@ -634,19 +651,29 @@ for emb_ep in range(pretrain_emb_epoch):
 print("[%.2fs]Pretrain embeddings for %d epochs, average emb loss %.4f, mmd loss %.4f, edge loss %.4f" % (time.time() - start_time, pretrain_emb_epoch, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses)))
 with torch.no_grad():
     views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
-    fused_emb_s, _ = fusion(views) 
+    # 融合模块指的是把多图的特征融合
+    fused_emb_s, _ = fusion(views)
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device)) 
     fused_emb_t, _ = fusion(views) 
+# mask_source.reshape(-1) 返回的是一系列bool值，整行的含义是去除false对应的值
+# reshape(-1)的含义是，不指定变换之后有多少行，将原来的tensor变成一列（default）
 emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
 emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)] 
 logreg = LogisticRegression(max_iter=500)
+"""
+交叉验证，有时亦称循环估计[1] [2] [3]， 是一种统计学上将数据样本切割成较小子集的实用方法。于是可以先在一个子集上做分析，而其它子集则用来做后续对此分析的确认及验证。一开始的子集被称为训练集。而其它的子集则被称为验证集或测试集。
+交叉验证的目的，是用未用来给模型作训练的新数据，测试模型的性能，以便减少诸如过拟合和选择偏差等问题，并给出模型如何在一个独立的数据集上通用化（即，一个未知的数据集，如实际问题中的数据）。
+交叉验证的理论是由Seymour Geisser所开始的。它对于防范根据数据建议的测试假设是非常重要的，特别是当后续的样本是危险、成本过高或科学上不适合时去搜集。
+"""
 cvscore_s = cross_validate(logreg, emb_s, source_emb_label)['test_score'].mean()
 cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 print("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_t))  
 print()
 
-
+# 后期要用这个参数
+source_weights_ma_list = []
+source_weight_list = []
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -669,6 +696,9 @@ for ep in range(num_epochs):
         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device)) 
         fused_emb_t, _ = fusion(views) 
     if ep % 2 == 0:
+        """
+        每两个epoch显示一些数据
+        """
         emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)] 
         mix_embs = np.concatenate([emb_s, emb_t], axis = 0)
@@ -680,6 +710,9 @@ for ep in range(num_epochs):
         print("[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
             (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s, cvscore_t, cvscore_mix))    
     if ep == num_epochs - 1:
+        """
+        最后一个epoch，
+        """
         emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)] 
         # np.save("%s.npy" % args.scity, arr = emb_s)
@@ -695,6 +728,7 @@ for ep in range(num_epochs):
     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t) 
     with torch.no_grad(): 
         source_weights = scoring(fused_emb_s, fused_emb_t)
+        source_weight_list.append(list(source_weights.cpu().numpy()))
     
     # For debug: use fixed weightings.
     # with torch.no_grad(): 
@@ -706,7 +740,9 @@ for ep in range(num_epochs):
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device = device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+    source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     # train network on source
+    # 有了参数lambda rs，那这个参数去训练特征网络等等（公式11），此处公式5
     source_loss = train_epoch(net, source_loader, pred_optimizer, weights = source_weights_ma, mask = th_mask_source, num_iters = args.pretrain_iter)
     avg_source_loss = np.mean(source_loss)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask = th_mask_target)[0]

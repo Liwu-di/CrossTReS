@@ -297,6 +297,15 @@ class STResNet(nn.Module):
         return torch.sigmoid(X)
     
     def functional_forward(self, X, spatial_mask = None, weights = None, bn_vars = None, bn_training = True):
+        """
+        通过给定参数去卷积等等
+        :param X:
+        :param spatial_mask:
+        :param weights:
+        :param bn_vars:
+        :param bn_training:
+        :return:
+        """
         if weights is None:
             # weights = OrderedDict(self.named_parameters())
             weights = OrderedDict(self.named_parameters())
