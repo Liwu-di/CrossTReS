@@ -526,6 +526,7 @@ def evaluate(net_, loader, spatial_mask):
         se = 0
         ae = 0
         valid_points = 0
+        losses = []
         for it_ in loader:
             if len(it_) == 2:
                 (x, y) = it_
@@ -540,6 +541,9 @@ def evaluate(net_, loader, spatial_mask):
             if len(out.shape) == 4:  # STResNet
                 se += (((out - y) ** 2) * (spatial_mask.view(1, 1, lng, lat))).sum().item()
                 ae += ((out - y).abs() * (spatial_mask.view(1, 1, lng, lat))).sum().item()
+                eff_batch_size = y.shape[0]
+                loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, spatial_mask.view(-1).bool()]
+                losses.append(loss)
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
                 lag = y.shape[1]
@@ -548,7 +552,9 @@ def evaluate(net_, loader, spatial_mask):
                 # log("y", y.shape)
                 se += ((out - y) ** 2).sum().item()
                 ae += (out - y).abs().sum().item()
-    return np.sqrt(se / valid_points), ae / valid_points
+                loss = ((out - y) ** 2)
+                losses.append(loss)
+    return np.sqrt(se / valid_points), ae / valid_points, losses
 
 
 def batch_sampler(tensor_list, batch_size):
@@ -975,15 +981,21 @@ for ep in range(num_epochs):
         # stop pre-training
         break
     net.eval()
-    rmse_val, mae_val = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_s_val, mae_s_val = evaluate(net, source_loader, spatial_mask=th_mask_source)
+    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_s_val, mae_s_val, test_losses = evaluate(net, source_loader, spatial_mask=th_mask_source)
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log()
-    writer.add_scalar("rmse_val * (max_val - min_val)", rmse_val * (max_val - min_val), ep)
-    writer.add_scalar("mae_val * (max_val - min_val)", mae_val * (max_val - min_val), ep)
+    writer.add_scalar("source validation rmse", rmse_s_val * (smax - smin), ep)
+    writer.add_scalar("source validation mse", mae_s_val * (smax - smin), ep)
+    writer.add_scalar("target validation rmse_val", rmse_val * (max_val - min_val), ep)
+    writer.add_scalar("target validation mae_val", mae_val * (max_val - min_val), ep)
+    for i in range(len(val_losses)):
+        writer.add_scalar("source train val loss", val_losses[i].mean(0).sum().item(), i)
+    for i in range(len(test_losses)):
+        writer.add_scalar("source train test loss", test_losses[i].mean(0).sum().item(), i)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 save_obj(source_weights_ma_list, path="source_weights_ma_list_{}.list".format(scity))
 save_obj(source_weight_list, path="source_weight_list_{}.list".format(scity))
@@ -994,8 +1006,12 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
     net.eval()
-    rmse_val, mae_val = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_test, mae_test = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    for i in range(len(val_losses)):
+        writer.add_scalar("target train val loss", val_losses[i].mean(0).sum().item(), i)
+    for i in range(len(test_losses)):
+        writer.add_scalar("target train test loss", test_losses[i].mean(0).sum().item(), i)
     if rmse_val < best_val_rmse:
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
