@@ -48,8 +48,8 @@ parser.add_argument('--learning_rate', type=float, default=1e-3)
 # 权重
 parser.add_argument('--weight_decay', type=float, default=5e-5)
 # 100回合跑下来数据有问题，改成40epoch看看，论文也是这个
-parser.add_argument('--num_epochs', type=int, default=3, help='Number of source training epochs')
-parser.add_argument('--num_tuine_epochs', type=int, default=3, help='Number of fine tuine epochs')
+parser.add_argument('--num_epochs', type=int, default=80, help='Number of source training epochs')
+parser.add_argument('--num_tuine_epochs', type=int, default=80, help='Number of fine tuine epochs')
 # gpu设备序号
 parser.add_argument('--gpu', type=int, default=0)
 # 随机种子 不知道是干嘛的
