@@ -48,8 +48,8 @@ parser.add_argument('--learning_rate', type=float, default=1e-3)
 # 权重
 parser.add_argument('--weight_decay', type=float, default=5e-5)
 # 100回合跑下来数据有问题，改成40epoch看看，论文也是这个
-parser.add_argument('--num_epochs', type=int, default=80, help='Number of source training epochs')
-parser.add_argument('--num_tuine_epochs', type=int, default=80, help='Number of fine tuine epochs')
+parser.add_argument('--num_epochs', type=int, default=3, help='Number of source training epochs')
+parser.add_argument('--num_tuine_epochs', type=int, default=3, help='Number of fine tuine epochs')
 # gpu设备序号
 parser.add_argument('--gpu', type=int, default=0)
 # 随机种子 不知道是干嘛的
@@ -890,7 +890,7 @@ source_weights_ma_list = []
 source_weight_list = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
-writer = SummaryWriter("log_{}".format(time.strftime("%Y-%m-%d-%H", time.localtime())))
+writer = SummaryWriter("log_{}".format(get_timestamp(split="-")))
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -992,10 +992,14 @@ for ep in range(num_epochs):
     writer.add_scalar("source validation mse", mae_s_val * (smax - smin), ep)
     writer.add_scalar("target validation rmse_val", rmse_val * (max_val - min_val), ep)
     writer.add_scalar("target validation mae_val", mae_val * (max_val - min_val), ep)
+    sums = 0
     for i in range(len(val_losses)):
-        writer.add_scalar("source train val loss", val_losses[i].mean(0).sum().item(), i)
+        sums = sums + val_losses[i].mean(0).sum().item()
+    writer.add_scalar("source train val loss", sums, ep)
+    sums = 0
     for i in range(len(test_losses)):
-        writer.add_scalar("source train test loss", test_losses[i].mean(0).sum().item(), i)
+        sums = sums + test_losses[i].mean(0).sum().item()
+    writer.add_scalar("source train test loss", sums, ep)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 save_obj(source_weights_ma_list, path="source_weights_ma_list_{}.list".format(scity))
 save_obj(source_weight_list, path="source_weight_list_{}.list".format(scity))
@@ -1008,10 +1012,14 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     net.eval()
     rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    sums = 0
     for i in range(len(val_losses)):
-        writer.add_scalar("target train val loss", val_losses[i].mean(0).sum().item(), i)
+        sums = sums + val_losses[i].mean(0).sum().item()
+    writer.add_scalar("target train val loss", sums, ep)
+    sums = 0
     for i in range(len(test_losses)):
-        writer.add_scalar("target train test loss", test_losses[i].mean(0).sum().item(), i)
+        sums = sums + test_losses[i].mean(0).sum().item()
+    writer.add_scalar("target train test loss", sums, ep)
     if rmse_val < best_val_rmse:
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
