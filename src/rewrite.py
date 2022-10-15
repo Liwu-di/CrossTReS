@@ -26,7 +26,7 @@ from torch.utils.tensorboard import SummaryWriter
 from model import *
 from utils import *
 
-basic_config(logs_style=LOG_STYLE_PRINT)
+basic_config(logs_style=LOG_STYLE_ALL)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
 p_bar.process(0, 1, 5)
 # This file implements the full version of using region embeddings to select good source data. 
