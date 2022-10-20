@@ -1170,9 +1170,8 @@ log(A_star_mask[20:, 23:].sum())
 
 log()
 log()
-np.save(local_path_generate("E:\\git-code\\CrossTReS\\data\\mutlti", "Astar", suffix="npz"), A_star)
-np.save(local_path_generate("E:\\git-code\\CrossTReS\\data\\mutlti", "Astar_mask", suffix="npz"), A_star_mask)
-
+np.save(local_path_generate("..\\data\\mutlti", "Astar", suffix="npz"), A_star)
+np.save(local_path_generate("..\\data\\mutlti", "Astar_mask", suffix="npz"), A_star_mask)
 
 # In[21]:
 
