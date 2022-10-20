@@ -1576,7 +1576,7 @@ for ep in range(num_epochs):
         """
         最后一个epoch，
         """
-        emb_s = fused_emb_s.cpu().numpy()[A_th_mask.reshape(-1)]
+        emb_s = fused_emb_s.cpu().numpy()[A_star_mask.reshape(-1)]
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
         # np.save("%s.npy" % args.scity, arr = emb_s)
         # np.save("%s.npy" % args.tcity, arr = emb_t)
