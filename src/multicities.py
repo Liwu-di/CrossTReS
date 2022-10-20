@@ -79,7 +79,7 @@ parser.add_argument("--ma_coef", type=float, default=0.6, help='Moving average p
 parser.add_argument("--weight_reg", type=float, default=1e-3, help="Regularizer for the source domain weights.")
 # 预训练回合数
 parser.add_argument("--pretrain_iter", type=int, default=-1, help='Pre-training iterations per pre-training epoch. ')
-args = parser.parse_args(args=[])
+args = parser.parse_args()
 
 if args.seed != -1:
     # seed( ) 用于指定随机数生成时所用算法开始的整数值，如果使用相同的seed( )值，则每次生成的随即数都相同，
@@ -1576,7 +1576,7 @@ for ep in range(num_epochs):
         """
         最后一个epoch，
         """
-        emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
+        emb_s = fused_emb_s.cpu().numpy()[A_th_mask.reshape(-1)]
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
         # np.save("%s.npy" % args.scity, arr = emb_s)
         # np.save("%s.npy" % args.tcity, arr = emb_t)
