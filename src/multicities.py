@@ -6,7 +6,6 @@
 import argparse
 from collections import OrderedDict
 
-import PaperCrawlerUtil.research_util
 import numpy as np
 import torch
 import torch.nn as nn
