@@ -6,6 +6,7 @@
 import argparse
 from collections import OrderedDict
 
+import PaperCrawlerUtil.research_util
 import numpy as np
 import torch
 import torch.nn as nn
@@ -34,6 +35,7 @@ p_bar.process(0, 1, 5)
 parser = argparse.ArgumentParser()
 # 源城市
 parser.add_argument('--scity', type=str, default='NY')
+parser.add_argument('--scity2', type=str, default='CHI')
 # 目标城市
 parser.add_argument('--tcity', type=str, default='DC')
 # 数据集名称
@@ -102,7 +104,7 @@ else:
 p_bar.process(1, 1, 5)
 dataname = args.dataname
 scity = args.scity
-scity2 = "CHI"
+scity2 = args.scity2
 tcity = args.tcity
 datatype = args.datatype
 num_epochs = args.num_epochs
