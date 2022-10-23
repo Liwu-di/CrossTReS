@@ -1679,4 +1679,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-
+torch.save(net, local_path_generate("./model/{}".format(get_timestamp(split="-")), "net.pth"))
+torch.save(mvgat, local_path_generate("./model/{}".format(get_timestamp(split="-")), "mvgat.pth"))
+torch.save(fusion, local_path_generate("./model/{}".format(get_timestamp(split="-")), "fusion.pth"))
+torch.save(scoring, local_path_generate("./model/{}".format(get_timestamp(split="-")), "scoring.pth"))
+torch.save(edge_disc, local_path_generate("./model/{}".format(get_timestamp(split="-")), "scoring.pth"))
