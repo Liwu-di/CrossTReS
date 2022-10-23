@@ -1627,8 +1627,8 @@ for ep in range(num_epochs):
         # stop pre-training
         break
     net.eval()
-    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_s_val, mae_s_val, test_losses = evaluate(net, A_star_loader, spatial_mask=A_th_mask)
+    rmse_val, mae_val, target_val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_s_val, mae_s_val, source_val_losses = evaluate(net, A_star_loader, spatial_mask=A_th_mask)
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
@@ -1639,13 +1639,13 @@ for ep in range(num_epochs):
     writer.add_scalar("target validation rmse_val", rmse_val * (max_val - min_val), ep)
     writer.add_scalar("target validation mae_val", mae_val * (max_val - min_val), ep)
     sums = 0
-    for i in range(len(val_losses)):
-        sums = sums + val_losses[i].mean(0).sum().item()
-    writer.add_scalar("source train val loss", sums, ep)
+    for i in range(len(target_val_losses)):
+        sums = sums + target_val_losses[i].mean(0).sum().item()
+    writer.add_scalar("train source val loss", sums, ep)
     sums = 0
-    for i in range(len(test_losses)):
-        sums = sums + test_losses[i].mean(0).sum().item()
-    writer.add_scalar("source train test loss", sums, ep)
+    for i in range(len(source_val_losses)):
+        sums = sums + source_val_losses[i].mean(0).sum().item()
+    writer.add_scalar("train target val loss", sums, ep)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 save_obj(source_weights_ma_list, path="source_weights_ma_list_{}.list".format(scity))
 save_obj(source_weight_list, path="source_weight_list_{}.list".format(scity))
