@@ -1532,7 +1532,7 @@ source_weight_list = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
-                       format("多城市{},{}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size, args.dataname,
+                       format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size, args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 for ep in range(num_epochs):
     net.train()
