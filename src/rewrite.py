@@ -78,6 +78,8 @@ parser.add_argument("--ma_coef", type=float, default=0.6, help='Moving average p
 parser.add_argument("--weight_reg", type=float, default=1e-3, help="Regularizer for the source domain weights.")
 # 预训练回合数
 parser.add_argument("--pretrain_iter", type=int, default=-1, help='Pre-training iterations per pre-training epoch. ')
+# 预测网络学习率
+parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
 args = parser.parse_args()
 
 if args.seed != -1:
@@ -502,7 +504,7 @@ elif args.model == 'STNet':
     log(net)
 
 # net估计是预测网络
-pred_optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
 # 图卷积，融合，边类型分类器参数单独训练
 emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
 emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
