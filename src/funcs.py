@@ -23,8 +23,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
-from src.funcs import graphs_to_edge_labels
-from src.params import params
 from utils import *
 
 
