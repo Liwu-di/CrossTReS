@@ -1,8 +1,5 @@
 # coding: utf-8
 
-# In[ ]:
-
-
 import argparse
 from collections import OrderedDict
 
@@ -21,77 +18,16 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
+from src.funcs import *
+from src.params import *
 from utils import *
-
-# In[2]:
 
 
 basic_config(logs_style=LOG_STYLE_ALL)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
+args = params()
 p_bar.process(0, 1, 5)
 # This file implements the full version of using region embeddings to select good source data.
-parser = argparse.ArgumentParser()
-# 源城市
-parser.add_argument('--scity', type=str, default='NY')
-parser.add_argument('--scity2', type=str, default='CHI')
-# 目标城市
-parser.add_argument('--tcity', type=str, default='DC')
-# 数据集名称
-parser.add_argument('--dataname', type=str, default='Taxi', help='Within [Bike, Taxi]')
-# 数据类型
-parser.add_argument('--datatype', type=str, default='pickup', help='Within [pickup, dropoff]')
-# 尝试减小，看显存能不能撑住 32 -> 16
-parser.add_argument('--batch_size', type=int, default=16)
-# 模型
-parser.add_argument("--model", type=str, default='STNet_nobn', help='Within [STResNet, STNet, STNet_nobn]')
-# 学习率
-parser.add_argument('--learning_rate', type=float, default=1e-3)
-# 权重
-parser.add_argument('--weight_decay', type=float, default=5e-5)
-# 100回合跑下来数据有问题，改成40epoch看看，论文也是这个
-parser.add_argument('--num_epochs', type=int, default=80, help='Number of source training epochs')
-parser.add_argument('--num_tuine_epochs', type=int, default=80, help='Number of fine tuine epochs')
-# gpu设备序号
-parser.add_argument('--gpu', type=int, default=0)
-# 随机种子 不知道是干嘛的
-parser.add_argument('--seed', type=int, default=-1, help='Random seed. -1 means do not manually set. ')
-# 数据量
-parser.add_argument('--data_amount', type=int, default=0, help='0: full data, 30/7/3 correspond to days of data')
-# 内循环 源训练数量
-parser.add_argument('--sinneriter', type=int, default=3, help='Number of inner iterations (source) for meta learning')
-# 内循环 微调数量
-parser.add_argument('--tinneriter', type=int, default=1, help='Number of inner iterations (target) for meta learning')
-# 内循环元学习学习率
-parser.add_argument('--innerlr', type=float, default=5e-5, help='Learning rate for inner loop of meta-learning')
-# 外循环数量
-parser.add_argument('--outeriter', type=int, default=20, help='Number of outer iterations for meta-learning')
-# 外循环学习率
-parser.add_argument('--outerlr', type=float, default=1e-4, help='Learning rate for the outer loop of meta-learning')
-# 前k个参数
-parser.add_argument('--topk', type=int, default=15)
-# 最大平均误差参数 ，也就是beta1
-parser.add_argument('--mmd_w', type=float, default=2, help='mmd weight')
-# 边缘分类器参数， beta2
-parser.add_argument('--et_w', type=float, default=2, help='edge classifier weight')
-# 源域权重的移动平均参数
-parser.add_argument("--ma_coef", type=float, default=0.6, help='Moving average parameter for source domain weights')
-# 源域权重的正则化器。
-parser.add_argument("--weight_reg", type=float, default=1e-3, help="Regularizer for the source domain weights.")
-# 预训练回合数
-parser.add_argument("--pretrain_iter", type=int, default=-1, help='Pre-training iterations per pre-training epoch. ')
-args = parser.parse_args()
-
-if args.seed != -1:
-    # seed( ) 用于指定随机数生成时所用算法开始的整数值，如果使用相同的seed( )值，则每次生成的随即数都相同，
-    # 如果不设置这个值，则系统根据时间来自己选择这个值，此时每次生成的随机数因时间差异而不同。
-    # random.seed(something)只能是一次有效
-    # seed( ) 用于指定随机数生成时所用算法开始的整数值。
-    # 1.如果使用相同的seed( )值，则每次生成的随即数都相同；
-    # 2.如果不设置这个值，则系统根据时间来自己选择这个值，此时每次生成的随机数因时间差异而不同。
-    # 3.设置的seed()值仅一次有效
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
 # 设置训练设备
 os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
 gpu_available = torch.cuda.is_available()
@@ -111,9 +47,6 @@ start_time = time.time()
 log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
     (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
 
-# In[3]:
-
-
 # Load spatio temporal data
 # (8784, 21, 20)
 # 8784 = 366 * 24
@@ -130,8 +63,6 @@ log("%d valid regions in target" % np.sum(mask_target))
 # (（21， 20）-> 420, （21， 20）-> 420)
 target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
 p_bar.process(2, 1, 5)
-
-# In[4]:
 
 
 # (8784, 20, 23)
@@ -151,8 +82,6 @@ mask_source2 = source_data2.sum(0) > 0
 th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
 log("%d valid regions in source" % np.sum(mask_source2))
 
-# In[5]:
-
 
 # 按照百分比分配标签
 source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
@@ -163,8 +92,6 @@ target_data, max_val, min_val = min_max_normalize(target_data)
 
 source_emb_label2 = masked_percentile_label(source_data2.sum(0).reshape(-1), mask_source2.reshape(-1))
 source_data2, smax2, smin2 = min_max_normalize(source_data2)
-
-# In[6]:
 
 
 # [(5898, 6, 20, 23), (5898, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23)]
@@ -304,35 +231,6 @@ for i in range(len(source_graphs)):
     target_graphs[i] = target_graphs[i].to(device)
 
 
-# In[11]:
-
-
-# This function is a preparation for the edge type discriminator
-def graphs_to_edge_labels(graphs):
-    """
-    准备边缘分类器的训练材料， 边的表示（起点，终点），边的标识【0,0,0,0,0】
-    :param graphs:
-    :return:
-    """
-    edge_label_dict = {}
-    for i, graph in enumerate(graphs):
-        src, dst = graph.edges()
-        for s, d in zip(src, dst):
-            s = s.item()
-            d = d.item()
-            if (s, d) not in edge_label_dict:
-                edge_label_dict[(s, d)] = np.zeros(len(graphs))
-            edge_label_dict[(s, d)][i] = 1
-    edges = []
-    edge_labels = []
-    for k in edge_label_dict.keys():
-        edges.append(k)
-        edge_labels.append(edge_label_dict[k])
-    edges = np.array(edges)
-    edge_labels = np.array(edge_labels)
-    return edges, edge_labels
-
-
 source_edges, source_edge_labels = graphs_to_edge_labels(source_graphs)
 source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
 target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
@@ -341,123 +239,6 @@ p_bar.process(5, 1, 5)
 
 # In[12]:
 
-
-# build models
-# we need one embedding model, one scoring model, one prediction model
-# 图注意力
-class MVGAT(nn.Module):
-    def __init__(self, num_graphs=3, num_gat_layer=2, in_dim=14, hidden_dim=64, emb_dim=32, num_heads=2, residual=True):
-        super().__init__()
-        self.num_graphs = num_graphs
-        self.num_gat_layer = num_gat_layer
-        self.in_dim = in_dim
-        self.hidden_dim = hidden_dim
-        self.emb_dim = emb_dim
-        self.num_heads = num_heads
-        self.residual = residual
-
-        self.multi_gats = nn.ModuleList()
-        for j in range(self.num_gat_layer):
-            gats = nn.ModuleList()
-            for i in range(self.num_graphs):
-                if j == 0:
-                    gats.append(GATConv(self.in_dim,
-                                        self.hidden_dim,
-                                        self.num_heads,
-                                        residual=self.residual,
-                                        allow_zero_in_degree=True))
-                elif j == self.num_gat_layer - 1:
-                    gats.append(GATConv(self.hidden_dim * self.num_heads,
-                                        self.emb_dim // self.num_heads,
-                                        self.num_heads,
-                                        residual=self.residual,
-                                        allow_zero_in_degree=True))
-                else:
-                    gats.append(GATConv(self.hidden_dim * self.num_heads,
-                                        self.hidden_dim,
-                                        self.num_heads,
-                                        residual=self.residual,
-                                        allow_zero_in_degree=True))
-            self.multi_gats.append(gats)
-
-    def forward(self, graphs, feat):
-        views = []
-        for i in range(self.num_graphs):
-            for j in range(self.num_gat_layer):
-                if j == 0:
-                    z = self.multi_gats[j][i](graphs[i], feat)
-                else:
-                    z = self.multi_gats[j][i](graphs[i], z)
-                if j != self.num_gat_layer - 1:
-                    z = F.relu(z)
-                z = z.flatten(1)
-            views.append(z)
-        return views
-
-
-# 融合模型
-class FusionModule(nn.Module):
-    """
-    融合多图模型的特征，使用了注意力机制，用全连接实现
-    """
-
-    def __init__(self, num_graphs, emb_dim, alpha):
-        super().__init__()
-        self.num_graphs = num_graphs
-        self.emb_dim = emb_dim
-        self.alpha = alpha
-
-        self.fusion_linear = nn.Linear(self.emb_dim, self.emb_dim)
-        self.self_q = nn.ModuleList()
-        self.self_k = nn.ModuleList()
-        for i in range(self.num_graphs):
-            self.self_q.append(nn.Linear(self.emb_dim, self.emb_dim))
-            self.self_k.append(nn.Linear(self.emb_dim, self.emb_dim))
-
-    def forward(self, views):
-        """
-        views -> cat_views cat_views = torch.stack(views, dim=0)
-        for 1 - 5
-            cat_views = 5*460*64
-            attn = torch.matmul(Q, K.transpose(1, 2))
-            output = torch.matmul(attn, cat_views)
-        average
-        views = self.alpha * self_attentions[i] + (1 - self.alpha) * views[i]
-        for 1 - 5
-            mv_outputs.append(torch.sigmoid(self.fusion_linear(views[i])) * views[i])
-        fused_outputs = sum(mv_outputs)
-        mv_outputs.append(torch.sigmoid(self.fusion_linear(views[i])) * views[i])
-        fused_outputs = sum(mv_outputs)
-        return fused_outputs, [(views[i] + fused_outputs) / 2 for i in range(self.num_graphs)]
-        :param views:
-        :return:
-        """
-        # run fusion by self attention
-        # 5个460*64 -> 5*460*64
-        cat_views = torch.stack(views, dim=0)
-        self_attentions = []
-        # 注意力分数计算
-        for i in range(self.num_graphs):
-            Q = self.self_q[i](cat_views)
-            K = self.self_k[i](cat_views)
-            # (3, num_nodes, 64)
-            attn = F.softmax(torch.matmul(Q, K.transpose(1, 2)) / np.sqrt(self.emb_dim), dim=-1)
-            # (3, num_nodes, num_nodes)
-            output = torch.matmul(attn, cat_views)
-            self_attentions.append(output)
-        self_attentions = sum(self_attentions) / self.num_graphs
-        # (3, num_nodes, 64 * 2)
-        for i in range(self.num_graphs):
-            views[i] = self.alpha * self_attentions[i] + (1 - self.alpha) * views[i]
-
-        # further run multi-view fusion
-        mv_outputs = []
-        for i in range(self.num_graphs):
-            mv_outputs.append(torch.sigmoid(self.fusion_linear(views[i])) * views[i])
-
-        fused_outputs = sum(mv_outputs)
-        # next_in = [(view + fused_outputs) / 2 for view in views]
-        return fused_outputs, [(views[i] + fused_outputs) / 2 for i in range(self.num_graphs)]
 
 
 # 评分模型
@@ -509,57 +290,12 @@ class Scoring(nn.Module):
         return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
 
 
-# 最大平均误差
-class MMD_loss(nn.Module):
-    def __init__(self, kernel_mul=2.0, kernel_num=5):
-        super(MMD_loss, self).__init__()
-        self.kernel_num = kernel_num
-        self.kernel_mul = kernel_mul
-        self.fix_sigma = None
-
-    def gaussian_kernel(self, source, target, kernel_mul=2.0, kernel_num=5, fix_sigma=None):
-        n_samples = int(source.size()[0]) + int(target.size()[0])
-        total = torch.cat([source, target], dim=0)
-        total0 = total.unsqueeze(0).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
-        total1 = total.unsqueeze(1).expand(int(total.size(0)), int(total.size(0)), int(total.size(1)))
-        L2_distance = ((total0 - total1) ** 2).sum(2)
-        if fix_sigma:
-            bandwidth = fix_sigma
-        else:
-            bandwidth = torch.sum(L2_distance.data) / (n_samples ** 2 - n_samples)
-        bandwidth /= kernel_mul ** (kernel_num // 2)
-        bandwidth_list = [bandwidth * (kernel_mul ** i) for i in range(kernel_num)]
-        kernel_val = [torch.exp(-L2_distance / bandwidth_temp) for bandwidth_temp in bandwidth_list]
-        return sum(kernel_val)
-
-    def forward(self, source, target):
-        batch_size = int(source.size()[0])
-        kernels = self.gaussian_kernel(source, target, kernel_mul=self.kernel_mul, kernel_num=self.kernel_num,
-                                       fix_sigma=self.fix_sigma)
-        XX = kernels[:batch_size, :batch_size]
-        YY = kernels[batch_size:, batch_size:]
-        XY = kernels[:batch_size, batch_size:]
-        YX = kernels[batch_size:, :batch_size]
-        loss = torch.mean(XX + YY - XY - YX)
-        return loss
 
 
 mmd = MMD_loss()
 
 
-# 边类型分类器
-class EdgeTypeDiscriminator(nn.Module):
-    def __init__(self, num_graphs, emb_dim):
-        super().__init__()
-        self.num_graphs = num_graphs
-        self.emb_dim = emb_dim
-        self.edge_network = nn.Sequential(nn.Linear(2 * self.emb_dim, self.emb_dim),
-                                          nn.ReLU(),
-                                          nn.Linear(self.emb_dim, self.num_graphs))
 
-    def forward(self, src_embs, dst_embs):
-        edge_vec = torch.cat([src_embs, dst_embs], dim=1)
-        return self.edge_network(edge_vec)
 
 
 num_gat_layers = 2
@@ -648,30 +384,7 @@ def evaluate(net_, loader, spatial_mask):
     return np.sqrt(se / valid_points), ae / valid_points, losses
 
 
-def batch_sampler(tensor_list, batch_size):
-    """
-    返回抽样数据
-    :param tensor_list: 元组或者list，随机抽取batchsize的数量
-    :param batch_size:
-    :return:
-    """
-    num_samples = tensor_list[0].size(0)
-    idx = np.random.permutation(num_samples)[:batch_size]
-    return (x[idx] for x in tensor_list)
 
-
-def get_weights_bn_vars(module):
-    """
-    获取未命名的参数名称,以及命名参数
-    :param module:
-    :return:
-    """
-    fast_weights = OrderedDict(module.named_parameters())
-    bn_vars = OrderedDict()
-    for k in module.state_dict():
-        if k not in fast_weights.keys():
-            bn_vars[k] = module.state_dict()[k]
-    return fast_weights, bn_vars
 
 
 def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None):
@@ -723,9 +436,6 @@ def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=No
         if num_iters is not None and num_iters == i:
             break
     return epoch_loss
-
-
-# In[14]:
 
 
 # 这个代码还用不到，有报错，单独拿出来，不执行
@@ -897,7 +607,7 @@ def meta_train_epoch(s_embs, t_embs):
     return np.mean(meta_query_losses)
 
 
-def train_emb_epoch():
+def train_emb_epoch2():
     """
     训练图网络-特征网络，融合网络，边类型分类器
     1. 通过forward_emb融合特征，计算损失，
@@ -976,7 +686,7 @@ edge_losses = []
 pretrain_emb_epoch = 80
 # 预训练图数据嵌入，边类型分类，节点对齐 ——> 获得区域特征
 for emb_ep in range(pretrain_emb_epoch):
-    loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch()
+    loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
     emb_losses.append(loss_emb_)
     mmd_losses.append(loss_mmd_)
     edge_losses.append(loss_et_)
@@ -996,20 +706,12 @@ emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
 emb_s2 = fused_emb_s2.cpu().numpy()[mask_source2.reshape(-1)]
 emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
 logreg = LogisticRegression(max_iter=500)
-"""
-交叉验证，有时亦称循环估计[1] [2] [3]， 是一种统计学上将数据样本切割成较小子集的实用方法。于是可以先在一个子集上做分析，而其它子集则用来做后续对此分析的确认及验证。一开始的子集被称为训练集。而其它的子集则被称为验证集或测试集。
-交叉验证的目的，是用未用来给模型作训练的新数据，测试模型的性能，以便减少诸如过拟合和选择偏差等问题，并给出模型如何在一个独立的数据集上通用化（即，一个未知的数据集，如实际问题中的数据）。
-交叉验证的理论是由Seymour Geisser所开始的。它对于防范根据数据建议的测试假设是非常重要的，特别是当后续的样本是危险、成本过高或科学上不适合时去搜集。
-"""
 cvscore_s = cross_validate(logreg, emb_s, source_emb_label)['test_score'].mean()
 cvscore_s2 = cross_validate(logreg, emb_s2, source_emb_label2)['test_score'].mean()
 cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 log("[%.2fs]Pretraining embedding, source cvscore %.4f, source2 cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_s2, cvscore_t))
 log()
-
-
-# In[17]:
 
 
 def score_of_two_city(s, t, smask, tmask):
@@ -1033,8 +735,6 @@ with torch.no_grad():
 log(source_weights_s1_t.shape)
 log(source_weights_s2_t.shape)
 log(source_weights_s2_s1.shape)
-
-# In[18]:
 
 
 """
