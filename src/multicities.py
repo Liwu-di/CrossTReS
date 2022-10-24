@@ -18,8 +18,8 @@ from torch.utils.data import DataLoader
 from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
-from src.funcs import *
-from src.params import *
+from funcs import *
+from params import *
 from utils import *
 
 
