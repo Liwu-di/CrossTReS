@@ -28,7 +28,7 @@ def params():
     # 数据类型
     parser.add_argument('--datatype', type=str, default='pickup', help='Within [pickup, dropoff]')
     # 尝试减小，看显存能不能撑住 32 -> 16
-    parser.add_argument('--batch_size', type=int, default=4)
+    parser.add_argument('--batch_size', type=int, default=16)
     # 模型
     parser.add_argument("--model", type=str, default='STNet_nobn', help='Within [STResNet, STNet, STNet_nobn]')
     # 学习率
@@ -36,8 +36,8 @@ def params():
     # 权重
     parser.add_argument('--weight_decay', type=float, default=5e-5)
     # 100回合跑下来数据有问题，改成40epoch看看，论文也是这个
-    parser.add_argument('--num_epochs', type=int, default=1, help='Number of source training epochs')
-    parser.add_argument('--num_tuine_epochs', type=int, default=1, help='Number of fine tuine epochs')
+    parser.add_argument('--num_epochs', type=int, default=100, help='Number of source training epochs')
+    parser.add_argument('--num_tuine_epochs', type=int, default=80, help='Number of fine tuine epochs')
     # gpu设备序号
     parser.add_argument('--gpu', type=int, default=0)
     # 随机种子 不知道是干嘛的

@@ -35,7 +35,6 @@ if gpu_available:
     device = torch.device('cuda:0')
 else:
     device = torch.device('cpu')
-p_bar.process(1, 1, 5)
 dataname = args.dataname
 scity = args.scity
 scity2 = args.scity2
@@ -46,7 +45,7 @@ num_tuine_epochs = args.num_tuine_epochs
 start_time = time.time()
 log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
     (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
-
+p_bar.process(1, 1, 5)
 # Load spatio temporal data
 # (8784, 21, 20)
 # 8784 = 366 * 24
@@ -62,7 +61,7 @@ th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to
 log("%d valid regions in target" % np.sum(mask_target))
 # (（21， 20）-> 420, （21， 20）-> 420)
 target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
-p_bar.process(2, 1, 5)
+
 
 
 # (8784, 20, 23)
@@ -82,10 +81,10 @@ mask_source2 = source_data2.sum(0) > 0
 th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
 log("%d valid regions in source" % np.sum(mask_source2))
 
-
+p_bar.process(2, 1, 5)
 # 按照百分比分配标签
 source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
-p_bar.process(3, 1, 5)
+
 lag = [-6, -5, -4, -3, -2, -1]
 source_data, smax, smin = min_max_normalize(source_data)
 target_data, max_val, min_val = min_max_normalize(target_data)
@@ -107,7 +106,7 @@ source_y = np.concatenate([source_train_y, source_val_y, source_test_y], axis=0)
 source_x2 = np.concatenate([source_train_x2, source_val_x2, source_test_x2], axis=0)
 source_y2 = np.concatenate([source_train_y2, source_val_y2, source_test_y2], axis=0)
 target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data, lag)
-
+p_bar.process(3, 1, 5)
 
 
 if args.data_amount != 0:
@@ -145,9 +144,6 @@ source_test_dataset2 = TensorDataset(torch.Tensor(source_test_x2), torch.Tensor(
 source_test_loader2 = DataLoader(source_test_dataset2, batch_size=args.batch_size)
 source_dataset2 = TensorDataset(torch.Tensor(source_x2), torch.Tensor(source_y2))
 source_loader2 = DataLoader(source_dataset2, batch_size=args.batch_size, shuffle=True)
-p_bar.process(4, 1, 5)
-
-
 
 
 # Load auxiliary data: poi data
@@ -230,7 +226,8 @@ for i in range(len(source_graphs)):
 source_edges, source_edge_labels = graphs_to_edge_labels(source_graphs)
 source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
 target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
-p_bar.process(5, 1, 5)
+p_bar.process(4, 1, 5)
+
 
 
 
@@ -329,7 +326,7 @@ meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
-
+p_bar.process(5, 1, 5)
 
 
 def evaluate(net_, loader, spatial_mask):
