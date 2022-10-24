@@ -23,7 +23,6 @@ from torch.utils.tensorboard import SummaryWriter
 from model import *
 from utils import *
 
-
 # In[2]:
 
 
@@ -112,7 +111,6 @@ start_time = time.time()
 log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
     (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
 
-
 # In[3]:
 
 
@@ -132,7 +130,6 @@ log("%d valid regions in target" % np.sum(mask_target))
 # (（21， 20）-> 420, （21， 20）-> 420)
 target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
 p_bar.process(2, 1, 5)
-
 
 # In[4]:
 
@@ -154,7 +151,6 @@ mask_source2 = source_data2.sum(0) > 0
 th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
 log("%d valid regions in source" % np.sum(mask_source2))
 
-
 # In[5]:
 
 
@@ -168,14 +164,14 @@ target_data, max_val, min_val = min_max_normalize(target_data)
 source_emb_label2 = masked_percentile_label(source_data2.sum(0).reshape(-1), mask_source2.reshape(-1))
 source_data2, smax2, smin2 = min_max_normalize(source_data2)
 
-
 # In[6]:
 
 
 # [(5898, 6, 20, 23), (5898, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23)]
 # 第一维是数量，第二维是每条数据中的数量
 source_train_x, source_train_y, source_val_x, source_val_y, source_test_x, source_test_y = split_x_y(source_data, lag)
-source_train_x2, source_train_y2, source_val_x2, source_val_y2, source_test_x2, source_test_y2 = split_x_y(source_data2, lag)
+source_train_x2, source_train_y2, source_val_x2, source_val_y2, source_test_x2, source_test_y2 = split_x_y(source_data2,
+                                                                                                           lag)
 # we concatenate all source data
 # (8778, 6, 20, 23)
 source_x = np.concatenate([source_train_x, source_val_x, source_test_x], axis=0)
@@ -184,7 +180,6 @@ source_y = np.concatenate([source_train_y, source_val_y, source_test_y], axis=0)
 source_x2 = np.concatenate([source_train_x2, source_val_x2, source_test_x2], axis=0)
 source_y2 = np.concatenate([source_train_y2, source_val_y2, source_test_y2], axis=0)
 target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data, lag)
-
 
 # In[7]:
 
@@ -208,7 +203,6 @@ log("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(
 log("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
 log("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
 
-
 # In[8]:
 
 
@@ -228,7 +222,6 @@ source_test_loader2 = DataLoader(source_test_dataset2, batch_size=args.batch_siz
 source_dataset2 = TensorDataset(torch.Tensor(source_x2), torch.Tensor(source_y2))
 source_loader2 = DataLoader(source_dataset2, batch_size=args.batch_size, shuffle=True)
 p_bar.process(4, 1, 5)
-
 
 # In[9]:
 
@@ -251,7 +244,6 @@ source_norm_poi2 = np.array(transform.fit_transform(source_poi2).todense())
 transform = TfidfTransformer()
 target_norm_poi = np.array(transform.fit_transform(target_poi).todense())
 
-
 # In[10]:
 
 
@@ -270,7 +262,8 @@ source_poi_adj = add_self_loop(source_poi_adj)
 source_poi_adj2 = add_self_loop(source_poi_adj2)
 target_poi_adj = add_self_loop(target_poi_adj)
 source_s_adj, source_d_adj, source_od_adj = build_source_dest_graph(scity, dataname, lng_source, lat_source, args.topk)
-source_s_adj2, source_d_adj2, source_od_adj2 = build_source_dest_graph(scity2, dataname, lng_source2, lat_source2, args.topk)
+source_s_adj2, source_d_adj2, source_od_adj2 = build_source_dest_graph(scity2, dataname, lng_source2, lat_source2,
+                                                                       args.topk)
 target_s_adj, target_d_adj, target_od_adj = build_source_dest_graph(tcity, dataname, lng_target, lat_target, args.topk)
 source_s_adj = add_self_loop(source_s_adj)
 source_s_adj2 = add_self_loop(source_s_adj2)
@@ -346,7 +339,6 @@ target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
 p_bar.process(5, 1, 5)
 
 
-
 # In[12]:
 
 
@@ -408,6 +400,7 @@ class FusionModule(nn.Module):
     """
     融合多图模型的特征，使用了注意力机制，用全连接实现
     """
+
     def __init__(self, num_graphs, emb_dim, alpha):
         super().__init__()
         self.num_graphs = num_graphs
@@ -1034,13 +1027,12 @@ def score_of_two_city(s, t, smask, tmask):
 
 
 with torch.no_grad():
-        source_weights_s1_t = score_of_two_city(fused_emb_s, fused_emb_t, th_mask_source, th_mask_target)
-        source_weights_s2_t = score_of_two_city(fused_emb_s2, fused_emb_t, th_mask_source2, th_mask_target)
-        source_weights_s2_s1 = score_of_two_city(fused_emb_s2, fused_emb_s, th_mask_source2, th_mask_source)
+    source_weights_s1_t = score_of_two_city(fused_emb_s, fused_emb_t, th_mask_source, th_mask_target)
+    source_weights_s2_t = score_of_two_city(fused_emb_s2, fused_emb_t, th_mask_source2, th_mask_target)
+    source_weights_s2_s1 = score_of_two_city(fused_emb_s2, fused_emb_s, th_mask_source2, th_mask_source)
 log(source_weights_s1_t.shape)
 log(source_weights_s2_t.shape)
 log(source_weights_s2_s1.shape)
-
 
 # In[18]:
 
@@ -1061,6 +1053,8 @@ include_8_nearist = []
 for i in idx[-args.topk:]:
     area_tuple.append((idx_1d22d(i, (lng_source2, lat_source2))))
 log(area_tuple)
+
+
 def yield_8_near(i, ranges):
     """
     产生i的8邻域，i，ranges都是元组或者可下标访问的元素，
@@ -1072,8 +1066,10 @@ def yield_8_near(i, ranges):
         for p in [-1, 0, 1]:
             if k == 0 and p == 0:
                 continue
-            elif 0<= i[0] + k < ranges[0] and 0 <= i[1] + p < ranges[1]:
+            elif 0 <= i[0] + k < ranges[0] and 0 <= i[1] + p < ranges[1]:
                 yield i[0] + k, i[1] + p
+
+
 for i in area_tuple:
     include_8_nearist.extend(list(yield_8_near(i, (lng_source2, lat_source2))))
 include_8_nearist = list(set(include_8_nearist))
@@ -1082,13 +1078,14 @@ for i in include_8_nearist:
     include_8_nearist_1d.append(idx_2d_2_1d(i, (lng_source2, lat_source2)))
 log(include_8_nearist_1d)
 
-
 # In[19]:
 
 
 """
 构建A‘, 通过对角添加方式[[S1][0][0][S2]]
 """
+
+
 def merge_multi_source_into_diagonal_matrix(s1, s2, s1_shape, s2_shape, date_num, check_num=1):
     """
     合并2个源城市数据到一个对角矩阵
@@ -1125,19 +1122,23 @@ def merge_multi_source_into_diagonal_matrix(s1, s2, s1_shape, s2_shape, date_num
         # log("right and up sum:{}".format(str(temp[0, 0: s1.shape[1], s1.shape[2]:].sum())))
         # log("left and down sum:{}".format(str(temp[0, s1.shape[1]:, 0: s1.shape[2]-1].sum())))
         # log("left and up sum:{}".format(str(temp[0, s1.shape[1]:, s1.shape[2]:].sum())))
-        if temp[0, 0: s1_shape[0], s1_shape[1]:].sum() == 0 and temp[0, s1_shape[0]:, 0: s1_shape[1]-1].sum() == 0:
+        if temp[0, 0: s1_shape[0], s1_shape[1]:].sum() == 0 and temp[0, s1_shape[0]:, 0: s1_shape[1] - 1].sum() == 0:
             pass
         else:
             log("failure:{}".format(str(i)))
             return None
     log("success check {}".format(str(check_num)))
     return temp
+
+
 log(source_data.shape)
 log(source_data2.shape)
-A_star = merge_multi_source_into_diagonal_matrix(source_data, source_data2, s1_shape=(source_data.shape[1], source_data.shape[2]), s2_shape=(source_data2.shape[1], source_data2.shape[2]),date_num=source_data.shape[0], check_num=100)
+A_star = merge_multi_source_into_diagonal_matrix(source_data, source_data2,
+                                                 s1_shape=(source_data.shape[1], source_data.shape[2]),
+                                                 s2_shape=(source_data2.shape[1], source_data2.shape[2]),
+                                                 date_num=source_data.shape[0], check_num=100)
 log(A_star.shape)
 log()
-
 
 # In[20]:
 
@@ -1178,7 +1179,7 @@ np.save(local_path_generate("..\\data\\mutlti", "Astar_mask", suffix="npz"), A_s
 
 
 A_star_lng, A_star_lat = A_star.shape[1], A_star.shape[2]
-A_th_mask =  torch.Tensor(A_star_mask.reshape(1, A_star_lng, A_star_lat)).to(device)
+A_th_mask = torch.Tensor(A_star_mask.reshape(1, A_star_lng, A_star_lat)).to(device)
 log("%d valid regions in multi" % np.sum(A_star_mask))
 # 按照百分比分配标签
 A_star_emb_label = masked_percentile_label(A_star.sum(0).reshape(-1), A_star_mask.reshape(-1))
@@ -1192,7 +1193,6 @@ A_star_test_dataset = TensorDataset(torch.Tensor(A_star_test_x), torch.Tensor(A_
 A_star_test_loader = DataLoader(A_star_test_dataset, batch_size=args.batch_size)
 A_star_dataset = TensorDataset(torch.Tensor(A_star_x), torch.Tensor(A_star_y))
 A_star_loader = DataLoader(A_star_dataset, batch_size=args.batch_size, shuffle=True)
-
 
 # In[22]:
 
@@ -1225,7 +1225,7 @@ for i in range(14):
     # log("right and up sum:{}".format(str(temp[0, 0: s1.shape[1], s1.shape[2]:].sum())))
     # log("left and down sum:{}".format(str(temp[0, s1.shape[1]:, 0: s1.shape[2]-1].sum())))
     # log("left and up sum:{}".format(str(temp[0, s1.shape[1]:, s1.shape[2]:].sum())))
-    if A_star_poi[a.shape[0]:, 0:a.shape[1], i].sum() == 0 and A_star_poi[0: a.shape[0],a.shape[1]:, i].sum() == 0:
+    if A_star_poi[a.shape[0]:, 0:a.shape[1], i].sum() == 0 and A_star_poi[0: a.shape[0], a.shape[1]:, i].sum() == 0:
         pass
     else:
         log("failure:{}".format(str(i)))
@@ -1241,18 +1241,24 @@ A_star_norm_poi = np.array(transform.fit_transform(A_star_poi).todense())
 
 def merge_static_feature(s1, s2):
     zero_padding_s1_right = torch.nn.ZeroPad2d((0, ((A_star_lng * A_star_lat) - (lat_source * lng_source)), 0, 0))
-    zero_padding_s1_right_down = torch.nn.ZeroPad2d((0, 0, 0, ((A_star_lng * A_star_lat) - (lat_source * lng_source) - (lat_source2 * lng_source2))))
+    zero_padding_s1_right_down = torch.nn.ZeroPad2d(
+        (0, 0, 0, ((A_star_lng * A_star_lat) - (lat_source * lng_source) - (lat_source2 * lng_source2))))
     zero_padding_s2_left = torch.nn.ZeroPad2d(((A_star_lng * A_star_lat) - (lat_source2 * lng_source2), 0, 0, 0))
     a = zero_padding_s1_right(torch.from_numpy(s1))
     a = zero_padding_s1_right_down(a)
     b = zero_padding_s2_left(torch.from_numpy(s2))
     temp = np.concatenate((a.numpy(), b.numpy()))
     log(temp.shape)
-    if temp[0:(lat_source * lng_source), (lat_source * lng_source):].sum() == 0 and temp[(A_star_lng * A_star_lat) - (lat_source2 * lng_source2): , 0: (A_star_lng * A_star_lat) - (lat_source2 * lng_source2)].sum() == 0 and temp[(lat_source * lng_source) :  (A_star_lng * A_star_lat) - (lat_source2 * lng_source2), :].sum() == 0:
+    if temp[0:(lat_source * lng_source), (lat_source * lng_source):].sum() == 0 and temp[(A_star_lng * A_star_lat) - (
+            lat_source2 * lng_source2):, 0: (A_star_lng * A_star_lat) - (
+            lat_source2 * lng_source2)].sum() == 0 and temp[(lat_source * lng_source):  (A_star_lng * A_star_lat) - (
+            lat_source2 * lng_source2), :].sum() == 0:
         log("success")
     else:
         log("failure")
     return temp
+
+
 A_star_prox_adj = add_self_loop(build_prox_graph(A_star_lng, A_star_lat))
 A_star_road_adj = merge_static_feature(source_road_adj, source_s_adj2)
 A_star_road_adj = add_self_loop(A_star_road_adj)
@@ -1279,7 +1285,6 @@ target_graphs = adjs_to_graphs([target_prox_adj, target_road_adj, target_poi_adj
 for i in range(len(source_graphs)):
     A_star_graphs[i] = A_star_graphs[i].to(device)
     target_graphs[i] = target_graphs[i].to(device)
-
 
 # In[24]:
 
@@ -1322,13 +1327,14 @@ best_test_rmse = 999
 best_test_mae = 999
 p_bar.process(5, 1, 5)
 
-
 # In[30]:
 
 
 """
 需要对meta_train_epoch修改一下，符合多城市要求
 """
+
+
 def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
     """
     0. 计算source_weights，通过scoring网络
@@ -1432,7 +1438,9 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
         meta_query_losses.append(q_loss.item())
     return np.mean(meta_query_losses)
 
-def train_emb_epoch(source_graphs, source_norm_poi, source_od_adj, source_poi_cos, target_graphs, target_norm_poi, target_od_adj, target_poi_cos):
+
+def train_emb_epoch(source_graphs, source_norm_poi, source_od_adj, source_poi_cos, target_graphs, target_norm_poi,
+                    target_od_adj, target_poi_cos):
     """
     训练图网络-特征网络，融合网络，边类型分类器
     1. 通过forward_emb融合特征，计算损失，
@@ -1482,6 +1490,8 @@ def train_emb_epoch(source_graphs, source_norm_poi, source_od_adj, source_poi_co
     loss.backward()
     emb_optimizer.step()
     return loss_emb.item(), mmd_loss.item(), loss_et.item()
+
+
 emb_losses = []
 mmd_losses = []
 edge_losses = []
@@ -1489,8 +1499,10 @@ pretrain_emb_epoch = 80
 # 预训练图数据嵌入，边类型分类，节点对齐 ——> 获得区域特征
 for emb_ep in range(pretrain_emb_epoch):
     loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch(
-        source_graphs=A_star_graphs, source_norm_poi=A_star_norm_poi, source_od_adj=A_star_od_adj, source_poi_cos=A_star_poi_cos,
-        target_graphs=target_graphs, target_norm_poi=target_norm_poi, target_od_adj=target_od_adj, target_poi_cos=target_poi_cos
+        source_graphs=A_star_graphs, source_norm_poi=A_star_norm_poi, source_od_adj=A_star_od_adj,
+        source_poi_cos=A_star_poi_cos,
+        target_graphs=target_graphs, target_norm_poi=target_norm_poi, target_od_adj=target_od_adj,
+        target_poi_cos=target_poi_cos
     )
     emb_losses.append(loss_emb_)
     mmd_losses.append(loss_mmd_)
@@ -1503,7 +1515,6 @@ with torch.no_grad():
     fused_emb_A_star, _ = fusion(views)
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
     fused_emb_t, _ = fusion(views)
-
 
 # In[31]:
 
@@ -1522,7 +1533,6 @@ log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_t))
 log()
 
-
 # In[32]:
 
 
@@ -1532,7 +1542,8 @@ source_weight_list = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
-                       format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size, args.dataname,
+                       format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size,
+                              args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 for ep in range(num_epochs):
     net.train()
@@ -1546,9 +1557,11 @@ for ep in range(num_epochs):
     edge_losses = []
     for emb_ep in range(5):
         loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch(
-        source_graphs=A_star_graphs, source_norm_poi=A_star_norm_poi, source_od_adj=A_star_od_adj, source_poi_cos=A_star_poi_cos,
-        target_graphs=target_graphs, target_norm_poi=target_norm_poi, target_od_adj=target_od_adj, target_poi_cos=target_poi_cos
-    )
+            source_graphs=A_star_graphs, source_norm_poi=A_star_norm_poi, source_od_adj=A_star_od_adj,
+            source_poi_cos=A_star_poi_cos,
+            target_graphs=target_graphs, target_norm_poi=target_norm_poi, target_od_adj=target_od_adj,
+            target_poi_cos=target_poi_cos
+        )
         emb_losses.append(loss_emb_)
         mmd_losses.append(loss_mmd_)
         edge_losses.append(loss_et_)
@@ -1681,8 +1694,16 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-torch.save(net, local_path_generate("./model/{}".format(get_timestamp(split="-")), "net.pth"))
-torch.save(mvgat, local_path_generate("./model/{}".format(get_timestamp(split="-")), "mvgat.pth"))
-torch.save(fusion, local_path_generate("./model/{}".format(get_timestamp(split="-")), "fusion.pth"))
-torch.save(scoring, local_path_generate("./model/{}".format(get_timestamp(split="-")), "scoring.pth"))
-torch.save(edge_disc, local_path_generate("./model/{}".format(get_timestamp(split="-")), "scoring.pth"))
+root_dir = local_path_generate(
+    "./model/{}".format(
+        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+            "多城市{}and{}-{}".format(args.scity, args.scity2, args.tcity),
+            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+            args.topk, get_timestamp(split="-")
+        )
+    ), create_folder_only=True)
+torch.save(net, root_dir + "/net.pth")
+torch.save(mvgat, root_dir + "/mvgat.pth")
+torch.save(fusion, root_dir + "/fusion.pth")
+torch.save(scoring, root_dir + "/scoring.pth")
+torch.save(edge_disc, root_dir + "/scoring.pth")
