@@ -108,7 +108,6 @@ source_x2 = np.concatenate([source_train_x2, source_val_x2, source_test_x2], axi
 source_y2 = np.concatenate([source_train_y2, source_val_y2, source_test_y2], axis=0)
 target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data, lag)
 
-# In[7]:
 
 
 if args.data_amount != 0:
@@ -130,8 +129,6 @@ log("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(
 log("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
 log("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
 
-# In[8]:
-
 
 # 这些代码 numpy -> Tensor -> TensorDataset -> DataLoader
 target_train_dataset = TensorDataset(torch.Tensor(target_train_x), torch.Tensor(target_train_y))
@@ -150,7 +147,7 @@ source_dataset2 = TensorDataset(torch.Tensor(source_x2), torch.Tensor(source_y2)
 source_loader2 = DataLoader(source_dataset2, batch_size=args.batch_size, shuffle=True)
 p_bar.process(4, 1, 5)
 
-# In[9]:
+
 
 
 # Load auxiliary data: poi data
@@ -171,7 +168,6 @@ source_norm_poi2 = np.array(transform.fit_transform(source_poi2).todense())
 transform = TfidfTransformer()
 target_norm_poi = np.array(transform.fit_transform(target_poi).todense())
 
-# In[10]:
 
 
 # Build graphs
@@ -236,8 +232,6 @@ source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
 target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
 p_bar.process(5, 1, 5)
 
-
-# In[12]:
 
 
 
@@ -336,8 +330,6 @@ best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
 
-
-# In[13]:
 
 
 def evaluate(net_, loader, spatial_mask):
@@ -465,9 +457,6 @@ def train_rt_epoch(net_, loader_, optimizer_):
         epoch_rtloss.append(loss_rt.item())
         epoch_loss.append(loss.item())
     return np.mean(epoch_predloss), np.mean(epoch_rtloss), np.mean(epoch_loss)
-
-
-# In[15]:
 
 
 def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
@@ -677,9 +666,6 @@ def train_emb_epoch2():
     return loss_emb.item(), mmd_losses.item(), loss_et.item()
 
 
-# In[16]:
-
-
 emb_losses = []
 mmd_losses = []
 edge_losses = []
@@ -778,8 +764,6 @@ for i in include_8_nearist:
     include_8_nearist_1d.append(idx_2d_2_1d(i, (lng_source2, lat_source2)))
 log(include_8_nearist_1d)
 
-# In[19]:
-
 
 """
 构建A‘, 通过对角添加方式[[S1][0][0][S2]]
@@ -840,7 +824,6 @@ A_star = merge_multi_source_into_diagonal_matrix(source_data, source_data2,
 log(A_star.shape)
 log()
 
-# In[20]:
 
 
 """
@@ -875,8 +858,6 @@ log()
 np.save(local_path_generate("..\\data\\mutlti", "Astar", suffix="npz"), A_star)
 np.save(local_path_generate("..\\data\\mutlti", "Astar_mask", suffix="npz"), A_star_mask)
 
-# In[21]:
-
 
 A_star_lng, A_star_lat = A_star.shape[1], A_star.shape[2]
 A_th_mask = torch.Tensor(A_star_mask.reshape(1, A_star_lng, A_star_lat)).to(device)
@@ -893,9 +874,6 @@ A_star_test_dataset = TensorDataset(torch.Tensor(A_star_test_x), torch.Tensor(A_
 A_star_test_loader = DataLoader(A_star_test_dataset, batch_size=args.batch_size)
 A_star_dataset = TensorDataset(torch.Tensor(A_star_x), torch.Tensor(A_star_y))
 A_star_loader = DataLoader(A_star_dataset, batch_size=args.batch_size, shuffle=True)
-
-# In[22]:
-
 
 a = source_poi.reshape((lng_source, lat_source, 14))
 b = source_poi2.reshape((lng_source2, lat_source2, 14))
@@ -935,8 +913,6 @@ A_star_poi = A_star_poi.reshape(((a.shape[0] + b.shape[0]) * (a.shape[1] + b.sha
 # 规范正则化到（0，1）
 A_star_norm_poi = np.array(transform.fit_transform(A_star_poi).todense())
 
-
-# In[23]:
 
 
 def merge_static_feature(s1, s2):
@@ -986,7 +962,6 @@ for i in range(len(source_graphs)):
     A_star_graphs[i] = A_star_graphs[i].to(device)
     target_graphs[i] = target_graphs[i].to(device)
 
-# In[24]:
 
 
 A_star_edges, A_star_edge_labels = graphs_to_edge_labels(A_star_graphs)
@@ -1026,9 +1001,6 @@ best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
 p_bar.process(5, 1, 5)
-
-# In[30]:
-
 
 """
 需要对meta_train_epoch修改一下，符合多城市要求
@@ -1216,8 +1188,6 @@ with torch.no_grad():
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
     fused_emb_t, _ = fusion(views)
 
-# In[31]:
-
 
 emb_s = fused_emb_A_star.cpu().numpy()[A_star_mask.reshape(-1)]
 emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
@@ -1233,7 +1203,6 @@ log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_t))
 log()
 
-# In[32]:
 
 
 # 后期要用这个参数
