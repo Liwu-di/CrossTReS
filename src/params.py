@@ -71,6 +71,9 @@ def params():
     # 预训练回合数
     parser.add_argument("--pretrain_iter", type=int, default=-1,
                         help='Pre-training iterations per pre-training epoch. ')
+    # 是否启用邻域
+    parser.add_argument("--near", type=int, default=0,
+                        help='0 启用 1 不启用 ')
 
     # 预测网络学习率
     parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")

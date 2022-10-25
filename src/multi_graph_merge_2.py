@@ -753,8 +753,12 @@ def yield_8_near(i, ranges):
                 yield i[0] + k, i[1] + p
 
 
-for i in area_tuple:
-    include_8_nearist.extend(list(yield_8_near(i, (lng_source2, lat_source2))))
+is_near_8 = True if args.near == 0 else False
+if is_near_8:
+    for i in area_tuple:
+        include_8_nearist.extend(list(yield_8_near(i, (lng_source2, lat_source2))))
+else:
+    include_8_nearist = area_tuple
 include_8_nearist_2d = list(set(include_8_nearist))
 include_8_nearist_1d = []
 for i in include_8_nearist_2d:
