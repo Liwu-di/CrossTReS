@@ -729,11 +729,11 @@ log(source_weights_s2_s1.shape)
 res_score = source_weights_s2_t
 idx = source_weights_s2_t.argsort()
 idx = idx[mask_source2.reshape(-1)]
-log(res_score[idx[-args.topk:]])
-log(idx[-args.topk:])
+log(res_score[idx[-args.topk_m:]])
+log(idx[-args.topk_m:])
 area_tuple = []
 include_8_nearist = []
-for i in idx[-args.topk:]:
+for i in idx[-args.topk_m:]:
     area_tuple.append((idx_1d22d(i, (lng_source2, lat_source2))))
 log(area_tuple)
 
