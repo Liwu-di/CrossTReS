@@ -58,6 +58,8 @@ def params():
     parser.add_argument('--outerlr', type=float, default=1e-4, help='Learning rate for the outer loop of meta-learning')
     # 前k个参数
     parser.add_argument('--topk', type=int, default=15)
+    # 多城市中第二个城市需要被融合的区域数量
+    parser.add_argument('--topk_m', type=int, default=15)
     # 最大平均误差参数 ，也就是beta1
     parser.add_argument('--mmd_w', type=float, default=2, help='mmd weight')
     # 边缘分类器参数， beta2
