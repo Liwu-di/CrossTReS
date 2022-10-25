@@ -259,11 +259,7 @@ class Scoring(nn.Module):
         """
         # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
         # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
-        target_context = torch.tanh(
-            torch.quantile(
-                self.score(target_emb[self.target_mask.view(-1).bool()]),
-                torch.Tensor([0.1, 0.25, 0.5, 0.75, 0.9]).to(device), dim=0).mean(0)
-        )
+        target_context = torch.tanh(self.score(target_emb[self.target_mask.view(-1).bool()]).mean(0))
         source_trans_emb = self.score(source_emb)
         # 460*32 * 1*32 = 462*32, 这里乘法表示1*32列表去乘460*32的每一行，逐元素
         # i.e.
@@ -706,7 +702,7 @@ def score_of_two_city(s, t, smask, tmask):
     :param t: 目标城市区域特征
     :return:
     """
-    tt = t[tmask.view(-1).bool()].sum(0).reshape(1, 64)
+    tt = t[tmask.view(-1).bool()].mean(0).reshape(1, 64)
     res = torch.cosine_similarity(s, tt)
     return res
 

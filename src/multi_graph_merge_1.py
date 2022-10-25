@@ -706,7 +706,7 @@ def score_of_two_city(s, t, smask, tmask):
     :param t: 目标城市区域特征
     :return:
     """
-    tt = t[tmask.view(-1).bool()].sum(0).reshape(1, 64)
+    tt = t[tmask.view(-1).bool()].mean(0).reshape(1, 64)
     res = torch.cosine_similarity(s, tt)
     return res
 
