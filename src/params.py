@@ -69,6 +69,9 @@ def params():
     # 预训练回合数
     parser.add_argument("--pretrain_iter", type=int, default=-1,
                         help='Pre-training iterations per pre-training epoch. ')
+
+    # 预测网络学习率
+    parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
     args = parser.parse_args()
 
     if args.seed != -1:
