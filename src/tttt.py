@@ -83,7 +83,7 @@ args = parser.parse_args(args=[])
 
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
-record = ResearchRecord(**c)
-p = record.insert(os.path.abspath(""), get_timestamp())
-time.sleep(4)
-record.update(p, get_timestamp(), "fsdsds")
+    record = ResearchRecord(**c)
+    p = record.insert(os.path.abspath(""), get_timestamp())
+    time.sleep(4)
+    record.update(p, get_timestamp(), "fsdsds")
