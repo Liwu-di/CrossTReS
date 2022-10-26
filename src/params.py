@@ -74,7 +74,13 @@ def params():
     # 是否启用邻域
     parser.add_argument("--near", type=int, default=0,
                         help='0 启用 1 不启用 ')
+    # 是否启用全局平均还是分位数平均
+    parser.add_argument("--mean", type=int, default=0,
+                        help='0 全局 1 分位数 ')
 
+    # 是否启用修正余弦相似度
+    parser.add_argument("--fix_cos", type=int, default=0,
+                        help='0 是 1 否 ')
     # 预测网络学习率
     parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
     args = parser.parse_args()

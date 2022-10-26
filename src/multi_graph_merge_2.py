@@ -702,8 +702,31 @@ def score_of_two_city(s, t, smask, tmask):
     :param t: 目标城市区域特征
     :return:
     """
-    tt = t[tmask.view(-1).bool()].mean(0).reshape(1, 64)
-    res = torch.cosine_similarity(s, tt)
+    def AdjCosine_np(x, y):
+        """
+        修正余弦相似度
+        :param x:
+        :param y:
+        :return:
+        """
+        avr = (x[0] + y[0]) / 2
+        d = np.linalg.norm(x-avr) * np.linalg.norm(y-avr)
+        return 0.5 + 0.5 * (np.dot(x-avr, y-avr) / d)
+    is_global_mean = True if args.mean == 0 else False
+    is_fix_cos = True if args.fix_cos == 0 else False
+    tt = None
+    res = None
+    if is_global_mean:
+        tt = t[tmask.view(-1).bool()].mean(0).reshape(1, 64)
+    else:
+        tt = torch.quantile(t[tmask.view(-1).bool()], torch.Tensor([i * 0.01 for i in range(0, 100, 5)]))
+    if is_fix_cos:
+        temp = []
+        for i in s:
+            temp.append(AdjCosine_np(i.cpu().numpy(), tt.cpu().numpy().reshape(64)))
+        return torch.from_numpy(np.array(temp))
+    else:
+        res = torch.cosine_similarity(s, tt)
     return res
 
 
