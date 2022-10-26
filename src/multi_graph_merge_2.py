@@ -316,7 +316,7 @@ elif args.model == 'STNet':
     log(net)
 
 # net估计是预测网络
-pred_optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
 # 图卷积，融合，边类型分类器参数单独训练
 emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
 emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
@@ -931,7 +931,7 @@ elif args.model == 'STNet_nobn':
 elif args.model == 'STNet':
     net = STNet(1, 3, th_mask_target).to(device)
     log(net)
-pred_optimizer = optim.Adam(net.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
+pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
 # 图卷积，融合，边类型分类器参数单独训练
 emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
 emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
