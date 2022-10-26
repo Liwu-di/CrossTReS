@@ -9,7 +9,7 @@ import ast
 import os
 import time
 
-from PaperCrawlerUtil.common_util import get_timestamp
+from PaperCrawlerUtil.common_util import *
 from PaperCrawlerUtil.research_util import ResearchRecord
 
 parser = argparse.ArgumentParser()
@@ -84,6 +84,8 @@ args = parser.parse_args()
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
     record = ResearchRecord(**c)
+    log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
+    log(p)
     time.sleep(4)
     record.update(p, get_timestamp(), "fsdsds")
