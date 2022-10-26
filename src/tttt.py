@@ -79,7 +79,7 @@ parser.add_argument("--fix_cos", type=int, default=0,
 # 预测网络学习率
 parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
 parser.add_argument("--c", type=str, default="", help="research record")
-args = parser.parse_args(args=[])
+args = parser.parse_args()
 
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
