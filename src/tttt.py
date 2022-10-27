@@ -94,15 +94,4 @@ if len(args.c) > 0:
     log(p)
     time.sleep(1)
     record.update(p, get_timestamp(), "fsdsds")
-    log('Closing all open connections...')
-    opened_address_text = ', '.join(
-        (
-            sshtunnel.address_to_str(
-                k.local_address
-            ) for k in record.ssl._server_list
-        )
-    ) or 'None'
-    log('Listening tunnels: ' + opened_address_text)
-    record.ssl._stop_transport()
-    record.ssl._server_list = []  # reset server list
-    record.ssl.tunnel_is_up = {}
+    record.__del__()
