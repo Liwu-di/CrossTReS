@@ -86,6 +86,7 @@ if len(args.c) > 0:
     check_ssl = True if c.get("ssl_ip") is not None and c.get("ssl_admin") is not None and \
                         c.get("ssl_pwd") is not None and c.get("ssl_db_port") is not None \
                         and c.get("ssl_port") is not None else False
+    log(check_ssl)
     record = ResearchRecord(**c)
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
