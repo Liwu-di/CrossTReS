@@ -82,6 +82,47 @@ parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction lear
 parser.add_argument("--c", type=str, default="", help="research record")
 args = parser.parse_args()
 
+class re2(ResearchRecord):
+
+    def __init__(self, **db_conf) -> None:
+        super().__init__(**db_conf)
+
+    @staticmethod
+    def create_db_table():
+        return super().create_db_table()
+
+    def create_db_conn(self):
+        super().create_db_conn()
+
+    def _execute(self, sql: str) -> bool:
+        return super()._execute(sql)
+
+    def insert(self, file: str, exec_time: str, args: str = "") -> tuple:
+        return super().insert(file, exec_time, args)
+
+    def update(self, id: int, finish_time: str = "", result: str = "", args: str = "", remark: str = "") -> bool:
+        return super().update(id, finish_time, result, args, remark)
+
+    def select_all(self):
+        return super().select_all()
+
+    def select_page(self, page: int = 100, page_no: int = 0) -> List:
+        return super().select_page(page, page_no)
+
+    def export(self, id_range: tuple or List = [-100], file_type: str = "csv", export_path: str = "") -> bool:
+        return super().export(id_range, file_type, export_path)
+
+    def __del__(self):
+        if self.ssl is not None:
+            # 实测这里必须是True，否则会报错，虽然不影响其他功能，但是不够美观
+            # 而且可能会有链接过多导致之后链接不上的问题
+            # @todo 暂时屏蔽ssl的主动关闭，会导致报错...
+            self.ssl.stop
+        if self.conn is not None:
+            self.conn.close
+        if self.cursor is not None:
+            self.cursor.close
+
 
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
@@ -89,7 +130,7 @@ if len(args.c) > 0:
                         c.get("ssl_pwd") is not None and c.get("ssl_db_port") is not None \
                         and c.get("ssl_port") is not None else False
     log(check_ssl)
-    record = ResearchRecord(**c)
+    record = re2(**c)
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
     log(p)
