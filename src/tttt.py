@@ -9,6 +9,7 @@ import ast
 import os
 import time
 
+import sshtunnel
 from PaperCrawlerUtil.common_util import *
 from PaperCrawlerUtil.research_util import ResearchRecord
 
@@ -93,3 +94,15 @@ if len(args.c) > 0:
     log(p)
     time.sleep(1)
     record.update(p, get_timestamp(), "fsdsds")
+    record.ssl.logger.info('Closing all open connections...')
+    opened_address_text = ', '.join(
+        (
+            sshtunnel.address_to_str(
+                k.local_address
+            ) for k in record.ssl._server_list
+        )
+    ) or 'None'
+    record.ssl.logger.debug('Listening tunnels: ' + opened_address_text)
+    record.ssl._stop_transport()
+    record.ssl._server_list = []  # reset server list
+    record.ssl.tunnel_is_up = {}
