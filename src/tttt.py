@@ -83,6 +83,9 @@ args = parser.parse_args()
 
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
+    check_ssl = True if c.get("ssl_ip") is not None and c.get("ssl_admin") is not None and \
+                        c.get("ssl_pwd") is not None and c.get("ssl_db_port") is not None \
+                        and c.get("ssl_port") is not None else False
     record = ResearchRecord(**c)
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
