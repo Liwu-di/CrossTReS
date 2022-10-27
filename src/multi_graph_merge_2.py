@@ -5,6 +5,7 @@
 # @Software: PyCharm
 # @Email   ：liwudi@liwudi.fun
 import argparse
+import ast
 from collections import OrderedDict
 import numpy as np
 import torch
@@ -24,11 +25,16 @@ from model import *
 from funcs import *
 from params import *
 from utils import *
+from PaperCrawlerUtil.research_util import *
 
 
 basic_config(logs_style=LOG_STYLE_ALL)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
+
 args = params()
+c = ast.literal_eval(args.c)
+record = ResearchRecord(**c)
+record_id = record.insert(__file__, get_timestamp(), args.__str__())
 p_bar.process(0, 1, 5)
 # This file implements the full version of using region embeddings to select good source data.
 # 设置训练设备
@@ -1319,3 +1325,6 @@ torch.save(mvgat, root_dir + "/mvgat.pth")
 torch.save(fusion, root_dir + "/fusion.pth")
 torch.save(scoring, root_dir + "/scoring.pth")
 torch.save(edge_disc, root_dir + "/edge_disc.pth")
+record.update(record_id, get_timestamp(),
+              "Best test rmse %.4f, mae %.4f" %
+              (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
