@@ -113,6 +113,7 @@ class ResearchRecord2(ResearchRecord):
         return super().export(id_range, file_type, export_path)
 
     def __del__(self):
+        self.ssl.stop(force=True)
         self.cursor.close()
         self.conn.close()
 
