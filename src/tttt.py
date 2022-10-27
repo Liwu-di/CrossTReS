@@ -95,3 +95,4 @@ if len(args.c) > 0:
     log(p)
     time.sleep(1)
     record.update(p, get_timestamp(), "fsdsds")
+    record.__del__()
