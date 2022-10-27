@@ -82,13 +82,48 @@ parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction lear
 parser.add_argument("--c", type=str, default="", help="research record")
 args = parser.parse_args()
 
+class ResearchRecord2(ResearchRecord):
+
+    def __init__(self, **db_conf) -> None:
+        super().__init__(**db_conf)
+
+    @staticmethod
+    def create_db_table():
+        return super().create_db_table()
+
+    def create_db_conn(self):
+        super().create_db_conn()
+
+    def _execute(self, sql: str) -> bool:
+        return super()._execute(sql)
+
+    def insert(self, file: str, exec_time: str) -> tuple:
+        return super().insert(file, exec_time)
+
+    def update(self, id: int, finish_time: str = "", result: str = "") -> bool:
+        return super().update(id, finish_time, result)
+
+    def select_all(self):
+        return super().select_all()
+
+    def select_page(self, page: int = 100, page_no: int = 0) -> List:
+        return super().select_page(page, page_no)
+
+    def export(self, id_range: tuple or List = [-100], file_type: str = "csv", export_path: str = "") -> bool:
+        return super().export(id_range, file_type, export_path)
+
+    def __del__(self):
+        self.cursor.close()
+        self.conn.close()
+
+
 if len(args.c) > 0:
     c = ast.literal_eval(args.c)
     check_ssl = True if c.get("ssl_ip") is not None and c.get("ssl_admin") is not None and \
                         c.get("ssl_pwd") is not None and c.get("ssl_db_port") is not None \
                         and c.get("ssl_port") is not None else False
     log(check_ssl)
-    record = ResearchRecord(**c)
+    record = ResearchRecord2(**c)
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
     log(p)
