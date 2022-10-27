@@ -87,5 +87,5 @@ if len(args.c) > 0:
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
     log(p)
-    time.sleep(4)
+    time.sleep(1)
     record.update(p, get_timestamp(), "fsdsds")
