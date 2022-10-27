@@ -130,7 +130,7 @@ if len(args.c) > 0:
                         c.get("ssl_pwd") is not None and c.get("ssl_db_port") is not None \
                         and c.get("ssl_port") is not None else False
     log(check_ssl)
-    record = re2(**c)
+    record = ResearchRecord(**c)
     log(c)
     p = record.insert(os.path.abspath(""), get_timestamp())
     log(p)
