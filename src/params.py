@@ -83,6 +83,9 @@ def params():
                         help='0 是 1 否 ')
     # 预测网络学习率
     parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
+    parser.add_argument("--c", type=str, default="", help="research record")
+
+
     args = parser.parse_args()
 
     if args.seed != -1:
