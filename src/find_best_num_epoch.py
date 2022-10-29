@@ -1182,10 +1182,6 @@ for i in range(10, 100, 10):
             cvscore_s = cross_validate(logreg, emb_s, A_star_emb_label)['test_score'].mean()
             cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
             cvscore_mix = cross_validate(logreg, mix_embs, mix_labels)['test_score'].mean()
-            log(
-                "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
-                (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
-                 cvscore_t, cvscore_mix))
         if ep == num_epochs - 1:
             """
             最后一个epoch，
