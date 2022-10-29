@@ -1140,6 +1140,9 @@ cvscore_s = cross_validate(logreg, emb_s, A_star_emb_label)['test_score'].mean()
 cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 
 for i in range(10, 100, 10):
+    best_val_rmse = 999
+    best_test_rmse = 999
+    best_test_mae = 999
     record_id = record.insert(__file__, get_timestamp(), args.__str__())
     p_bar = process_bar(final_prompt="训练完成", unit="epoch")
     p_bar.process(0, 1, i + num_tuine_epochs)
