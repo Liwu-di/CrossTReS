@@ -1326,5 +1326,5 @@ torch.save(fusion, root_dir + "/fusion.pth")
 torch.save(scoring, root_dir + "/scoring.pth")
 torch.save(edge_disc, root_dir + "/edge_disc.pth")
 record.update(record_id, get_timestamp(),
-              "Best test rmse %.4f, mae %.4f" %
+              "%.4f,%.4f" %
               (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
