@@ -240,52 +240,82 @@ p_bar.process(4, 1, 5)
 
 
 
+if args.scoring == 1:
+    # 评分模型
+    class Scoring(nn.Module):
+        def __init__(self, emb_dim, source_mask, target_mask):
+            super().__init__()
+            self.emb_dim = emb_dim
+            self.score = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
+                                       nn.ReLU(inplace=True),
+                                       nn.Linear(self.emb_dim // 2, self.emb_dim // 2))
+            self.source_mask = source_mask
+            self.target_mask = target_mask
 
-# 评分模型
-class Scoring(nn.Module):
-    def __init__(self, emb_dim, source_mask, target_mask):
-        super().__init__()
-        self.emb_dim = emb_dim
-        self.score = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
-                                   nn.ReLU(inplace=True),
-                                   nn.Linear(self.emb_dim // 2, self.emb_dim // 2))
-        self.source_mask = source_mask
-        self.target_mask = target_mask
+        def forward(self, source_emb, target_emb):
+            """
+            求源城市评分
+            注意这里求评分，是source的每一个区域对于目标城市整体
+            换句话说，是形参2的每一个区域，对于形参3整体
+            :param target_mask:
+            :param source_mask:
+            :param source_emb:
+            :param target_emb:
+            :return:
+            """
+            # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
+            # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
+            target_context = torch.tanh(self.score(target_emb[self.target_mask.view(-1).bool()]).mean(0))
+            source_trans_emb = self.score(source_emb)
+            # 460*32 * 1*32 = 462*32, 这里乘法表示1*32列表去乘460*32的每一行，逐元素
+            # i.e.
+            # tensor([[2, 2, 2],
+            #         [1, 2, 2],
+            #         [2, 2, 1]])
+            # tensor([[2, 2, 2]])
+            # tensor([[4, 4, 4],
+            #         [2, 4, 4],
+            #         [4, 4, 2]])
+            source_score = (source_trans_emb * target_context).sum(1)
+            # the following lines modify inner product similarity to cosine similarity
+            # target_norm = target_context.pow(2).sum().pow(1/2)
+            # source_norm = source_trans_emb.pow(2).sum(1).pow(1/2)
+            # source_score /= source_norm
+            # source_score /= target_norm
+            # log(source_score)
+            return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
 
-    def forward(self, source_emb, target_emb):
-        """
-        求源城市评分
-        注意这里求评分，是source的每一个区域对于目标城市整体
-        换句话说，是形参2的每一个区域，对于形参3整体
-        :param target_mask:
-        :param source_mask:
-        :param source_emb:
-        :param target_emb:
-        :return:
-        """
-        # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
-        # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
-        target_context = torch.tanh(self.score(target_emb[self.target_mask.view(-1).bool()]).mean(0))
-        source_trans_emb = self.score(source_emb)
-        # 460*32 * 1*32 = 462*32, 这里乘法表示1*32列表去乘460*32的每一行，逐元素
-        # i.e.
-        # tensor([[2, 2, 2],
-        #         [1, 2, 2],
-        #         [2, 2, 1]])
-        # tensor([[2, 2, 2]])
-        # tensor([[4, 4, 4],
-        #         [2, 4, 4],
-        #         [4, 4, 2]])
-        source_score = (source_trans_emb * target_context).sum(1)
-        # the following lines modify inner product similarity to cosine similarity
-        # target_norm = target_context.pow(2).sum().pow(1/2)
-        # source_norm = source_trans_emb.pow(2).sum(1).pow(1/2)
-        # source_score /= source_norm
-        # source_score /= target_norm
-        # log(source_score)
-        return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
+else:
+    class Scoring(nn.Module):
+        def __init__(self, emb_dim, source_mask, target_mask):
+            super().__init__()
+            self.emb_dim = emb_dim
+            self.score = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
+                                       nn.ReLU(inplace=True),
+                                       nn.Linear(self.emb_dim // 2, self.emb_dim // 2),
+                                       nn.ReLU(inplace=True),
+                                       nn.Linear(self.emb_dim // 2, 1))
+            self.source_mask = source_mask
+            self.target_mask = target_mask
 
-
+        def forward(self, source_emb, target_emb):
+            """
+            求源城市评分
+            注意这里求评分，是source的每一个区域对于目标城市整体
+            换句话说，是形参2的每一个区域，对于形参3整体
+            :param target_mask:
+            :param source_mask:
+            :param source_emb:
+            :param target_emb:
+            :return:
+            """
+            # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
+            # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
+            target_context = target_emb[self.target_mask.view(-1).bool()].mean(0)
+            target_context_stack = tuple(target_context.reshape((1, self.emb_dim)) for i in range(source_emb.shape[0]))
+            target_context_stack = torch.cat(target_context_stack, dim=0)
+            source_emb = source_emb - target_context_stack
+            return self.score(source_emb)[self.source_mask.view(-1).bool()]
 
 
 mmd = MMD_loss()

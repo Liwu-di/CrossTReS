@@ -84,7 +84,7 @@ def params():
     # 预测网络学习率
     parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
     parser.add_argument("--c", type=str, default="", help="research record")
-
+    parser.add_argument("--scoring", type=int, default=1, help="score method")
 
     args = parser.parse_args()
 
