@@ -1096,11 +1096,11 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             flag = False
             if args.time_meta == 1:
                 if two_one_choose():
-                    flag = True
                     x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
                                              args.batch_size)
                     temp_mask = th_mask_target
                 else:
+                    flag = True
                     x_q, y_q, mask_temp = batch_sampler_time((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
                                                   args.batch_size_time_sample)
                     temp_mask = mask_temp
