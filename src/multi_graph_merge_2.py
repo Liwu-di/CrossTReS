@@ -996,17 +996,21 @@ def batch_sampler_time(tensor_list, batch_size):
     idxH = np.random.permutation(H)[:batch_size]
     x = []
     y = []
+    mask = []
     for i in idxW:
         for j in idxH:
             x.append(tensor_list[0][:, :, i, j])
             y.append(tensor_list[1][:, :, i, j])
+            mask.append(th_mask_target[:, i, j])
     x = [i.reshape((i.shape[0], i.shape[1], 1)) for i in x]
     y = [i.reshape((i.shape[0], i.shape[1], 1)) for i in y]
     x = torch.cat(x, dim=2)
     y = torch.cat(y, dim=2)
     x = x.reshape((x.shape[0], x.shape[1], batch_size, batch_size))
     y = y.reshape((y.shape[0], y.shape[1], batch_size, batch_size))
-    return x, y
+    mask = torch.cat(mask)
+    mask = mask.reshape((1, batch_size, batch_size))
+    return x, y, mask
 
 def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
     """
@@ -1088,23 +1092,27 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             # query loss
             x_q = None
             y_q = None
+            temp_mask = None
             if args.time_meta == 1:
                 if two_one_choose():
                     x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
                                              args.batch_size)
+                    temp_mask = th_mask_target
                 else:
-                    x_q, y_q = batch_sampler_time((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
+                    x_q, y_q, mask_temp = batch_sampler_time((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
                                                   args.batch_size_time_sample)
+                    temp_mask = mask_temp
             else:
                 x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
+                temp_mask = th_mask_target
             x_q = x_q.to(device)
             y_q = y_q.to(device)
-            pred_q = net.functional_forward(x_q, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
+            pred_q = net.functional_forward(x_q, temp_mask.bool(), fast_weights, bn_vars, bn_training=True)
             if len(pred_q.shape) == 4:  # STResNet
-                loss = (((pred_q - y_q) ** 2) * (th_mask_target.view(1, 1, lng_target, lat_target)))
+                loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
                 loss = loss.mean(0).sum()
             elif len(pred_q.shape) == 3:  # STNet
-                y_q = y_q.view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
+                y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
                 loss = ((pred_q - y_q) ** 2).mean(0).sum()
             q_losses.append(loss)
         q_loss = torch.stack(q_losses).mean()
