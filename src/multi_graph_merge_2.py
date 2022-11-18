@@ -1093,8 +1093,10 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             x_q = None
             y_q = None
             temp_mask = None
+            flag = False
             if args.time_meta == 1:
                 if two_one_choose():
+                    flag = True
                     x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
                                              args.batch_size)
                     temp_mask = th_mask_target
@@ -1118,7 +1120,7 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             elif len(pred_q.shape) == 3:  # STNet
                 if args.time_meta == 0:
                     y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
-                elif args.time_meta == 1 and temp_mask != th_mask_target:
+                elif args.time_meta == 1 and flag:
                     y_q = y_q.view(y_q.shape[0], y_q.shape[1], args.batch_size_time_sample ** 2)[:, :, temp_mask.view(-1).bool()]
                 else:
                     y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
