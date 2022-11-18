@@ -1000,8 +1000,8 @@ def batch_sampler_time(tensor_list, batch_size):
         for j in idxH:
             x.append(tensor_list[0][:, :, i, j])
             y.append(tensor_list[1][:, :, i, j])
-    x = [torch.from_numpy(i.reshape((1, i.shape[0], i.shape[1]))) for i in x]
-    y = [torch.from_numpy(i.reshape((1, i.shape[0], i.shape[1]))) for i in y]
+    x = [i.reshape((1, i.shape[0], i.shape[1])) for i in x]
+    y = [i.reshape((1, i.shape[0], i.shape[1])) for i in y]
     return torch.cat(x), torch.cat(y)
 
 
