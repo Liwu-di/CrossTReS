@@ -983,6 +983,20 @@ p_bar.process(5, 1, 5)
 """
 
 
+def batch_sampler_time(tensor_list, batch_size):
+    """
+    返回抽样数据
+    :param tensor_list: 元组或者list，随机抽取batchsize的数量
+    :param batch_size:
+    :return:
+    """
+    W = tensor_list[0].shape[2]
+    H = tensor_list[0].shape[3]
+    idxW = np.random.permutation(W)[:batch_size]
+    idxH = np.random.permutation(H)[:batch_size]
+    return (x[:, :, idxW, idxH] for x in tensor_list)
+
+
 def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
     """
     0. 计算source_weights，通过scoring网络
@@ -1061,7 +1075,17 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
         target_iter = max(args.sinneriter, args.tinneriter)
         for k in range(3):
             # query loss
-            x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
+            x_q = None
+            y_q = None
+            if args.time_meta == 1:
+                if two_one_choose():
+                    x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
+                                             args.batch_size)
+                else:
+                    x_q, y_q = batch_sampler_time((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
+                                                  args.batch_size)
+            else:
+                x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
             x_q = x_q.to(device)
             y_q = y_q.to(device)
             pred_q = net.functional_forward(x_q, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
