@@ -1118,7 +1118,7 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             elif len(pred_q.shape) == 3:  # STNet
                 if args.time_meta == 0:
                     y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
-                else:
+                elif args.time_meta == 1 and temp_mask != th_mask_target:
                     y_q = y_q.view(y_q.shape[0], y_q.shape[1], args.batch_size_time_sample ** 2)[:, :, temp_mask.view(-1).bool()]
                 loss = ((pred_q - y_q) ** 2).mean(0).sum()
             q_losses.append(loss)
