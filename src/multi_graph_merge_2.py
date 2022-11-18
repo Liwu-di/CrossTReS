@@ -1109,10 +1109,17 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
             y_q = y_q.to(device)
             pred_q = net.functional_forward(x_q, temp_mask.bool(), fast_weights, bn_vars, bn_training=True)
             if len(pred_q.shape) == 4:  # STResNet
-                loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
+                if args.time_meta == 0:
+                    loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
+                else:
+                    loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, args.batch_size_time_sample,
+                                                                    args.batch_size_time_sample)))
                 loss = loss.mean(0).sum()
             elif len(pred_q.shape) == 3:  # STNet
-                y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
+                if args.time_meta == 0:
+                    y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
+                else:
+                    y_q = y_q.view(y_q.shape[0], y_q.shape[1], args.batch_size_time_sample ** 2)[:, :, temp_mask.view(-1).bool()]
                 loss = ((pred_q - y_q) ** 2).mean(0).sum()
             q_losses.append(loss)
         q_loss = torch.stack(q_losses).mean()
