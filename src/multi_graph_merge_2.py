@@ -1000,10 +1000,13 @@ def batch_sampler_time(tensor_list, batch_size):
         for j in idxH:
             x.append(tensor_list[0][:, :, i, j])
             y.append(tensor_list[1][:, :, i, j])
-    x = [i.reshape((1, i.shape[0], i.shape[1])) for i in x]
-    y = [i.reshape((1, i.shape[0], i.shape[1])) for i in y]
-    return torch.cat(x), torch.cat(y)
-
+    x = [i.reshape((i.shape[0], i.shape[1], 1)) for i in x]
+    y = [i.reshape((i.shape[0], i.shape[1], 1)) for i in y]
+    x = torch.cat(x, dim=2)
+    y = torch.cat(y, dim=2)
+    x = x.reshape((x.shape[0], x.shape[1], batch_size, batch_size))
+    y = y.reshape((y.shape[0], y.shape[1], batch_size, batch_size))
+    return x, y
 
 def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
     """
