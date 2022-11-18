@@ -29,6 +29,7 @@ def params():
     parser.add_argument('--datatype', type=str, default='pickup', help='Within [pickup, dropoff]')
     # 尝试减小，看显存能不能撑住 32 -> 16
     parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--batch_size_time_sample', type=int, default=8)
     # 模型
     parser.add_argument("--model", type=str, default='STNet_nobn', help='Within [STResNet, STNet, STNet_nobn]')
     # 学习率

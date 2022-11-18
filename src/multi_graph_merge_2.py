@@ -994,7 +994,13 @@ def batch_sampler_time(tensor_list, batch_size):
     H = tensor_list[0].shape[3]
     idxW = np.random.permutation(W)[:batch_size]
     idxH = np.random.permutation(H)[:batch_size]
-    return (x[:, :, idxW, idxH] for x in tensor_list)
+    x = []
+    y = []
+    for i in idxW:
+        for j in idxH:
+            x.append(tensor_list[0][:, :, i, j])
+            y.append(tensor_list[1][:, :, i, j])
+    return x, y
 
 
 def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
@@ -1083,7 +1089,7 @@ def meta_train_epoch(s_embs, t_embs, th_mask_source, th_mask_target):
                                              args.batch_size)
                 else:
                     x_q, y_q = batch_sampler_time((torch.Tensor(target_train_x), torch.Tensor(target_train_y)),
-                                                  args.batch_size)
+                                                  args.batch_size_time_sample)
             else:
                 x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
             x_q = x_q.to(device)
