@@ -783,7 +783,7 @@ for ep in range(num_epochs):
         source_weights = scoring(fused_emb_s, fused_emb_t)
         source_weights2 = scoring2(fused_emb_s2, fused_emb_t)
         source_weight_list.append(list(source_weights.cpu().numpy()))
-        source_weight_list.extend(list(source_weights2.cpu().numpy))
+        source_weight_list.extend(list(source_weights2.cpu().numpy()))
 
     # For debug: use fixed weightings.
     # with torch.no_grad():
