@@ -87,6 +87,7 @@ def params():
     parser.add_argument("--c", type=str, default="", help="research record")
     parser.add_argument("--scoring", type=int, default=1, help="score method")
     parser.add_argument("--time_meta", type=int, default=1, help="time_meta")
+    parser.add_argument("--meta_batch_size", type=int, default=16, help="time_meta")
     args = parser.parse_args()
 
     if args.seed != -1:

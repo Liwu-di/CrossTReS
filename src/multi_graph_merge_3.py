@@ -602,6 +602,23 @@ def batch_sampler_time(tensor_list, batch_size):
     mask = torch.cat(mask)
     mask = mask.reshape((1, batch_size, batch_size))
     return x, y, mask
+
+
+def net_fix(source, y, weight, mask, fast_weights, bn_vars):
+    pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
+    if len(pred_source.shape) == 4:  # STResNet
+        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
+                      mask.view(-1).bool()]
+        loss_source = (loss_source * weight).mean(0).sum()
+    elif len(pred_source.shape) == 3:  # STNet
+        y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+        loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
+        loss_source = loss_source.mean(0).sum()
+    fast_loss = loss_source
+    grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
+    for name, grad in zip(fast_weights.keys(), grads):
+        fast_weights[name] = fast_weights[name] - args.innerlr * grad
+    return fast_loss, fast_weights, bn_vars
 def meta_train_epoch(s_embs, s2_embs, t_embs):
     """
     0. 计算source_weights，通过scoring网络
@@ -624,30 +641,16 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         source_weights2 = scoring2(s2_embs, t_embs)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)), int(int(args.batch_size) / 2))
-            s_x2, s_y2 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)), int(int(args.batch_size) / 2))
+            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)), args.meta_batch_size)
             s_x1 = s_x1.to(device)
-            s_x2 = s_x2.to(device)
             s_y1 = s_y1.to(device)
-            s_y2 = s_y2.to(device)
-            def net_fix(source, y, weight,  mask, fast_weights, bn_vars):
-                pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
-                if len(pred_source.shape) == 4:  # STResNet
-                    loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
-                                  mask.view(-1).bool()]
-                    loss_source = (loss_source * weight).mean(0).sum()
-                elif len(pred_source.shape) == 3:  # STNet
-                    y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-                    loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
-                    loss_source = loss_source.mean(0).sum()
-                fast_loss = loss_source
-                grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
-                for name, grad in zip(fast_weights.keys(), grads):
-                    fast_weights[ name] = fast_weights[name] - args.innerlr * grad
-                return fast_loss, fast_weights, bn_vars
             fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_source, fast_weights, bn_vars)
             fast_losses.append(fast_loss.item())
-            fast_loss, fast_weights, bn_vars = net_fix(s_x2, s_y2, source_weights2, th_mask_source2, fast_weights, bn_vars)
+            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
+                                       args.meta_batch_size)
+            s_x1 = s_x1.to(device)
+            s_y1 = s_y1.to(device)
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights2, th_mask_source2, fast_weights, bn_vars)
             fast_losses.append(fast_loss.item())
 
         # inner loop on target, simulate fine-tune
