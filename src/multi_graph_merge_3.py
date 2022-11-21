@@ -624,8 +624,8 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         source_weights2 = scoring2(s2_embs, t_embs)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)), args.batch_size)
-            s_x2, s_y2 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)), args.batch_size)
+            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)), args.batch_size / 2)
+            s_x2, s_y2 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)), args.batch_size / 2)
             s_x1 = s_x1.to(device)
             s_x2 = s_x2.to(device)
             s_y1 = s_y1.to(device)
