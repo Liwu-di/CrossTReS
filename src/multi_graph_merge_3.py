@@ -757,8 +757,8 @@ for ep in range(num_epochs):
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
         mix_embs = np.concatenate([emb_s, emb_t], axis=0)
         mix_embs2 = np.concatenate([emb_s2, emb_t], axis=0)
-        mix_labels = np.concatenate([source_edge_labels, target_emb_label])
-        mix_labels2 = np.concatenate([source_edge_labels2, target_emb_label])
+        mix_labels = np.concatenate([source_emb_label, target_emb_label])
+        mix_labels2 = np.concatenate([source_emb_label2, target_emb_label])
         logreg = LogisticRegression(max_iter=500)
         cvscore_s = cross_validate(logreg, emb_s, source_edge_labels)['test_score'].mean()
         cvscore_s2 = cross_validate(logreg, emb_s2, source_edge_labels2)['test_score'].mean()
