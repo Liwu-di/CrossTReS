@@ -709,7 +709,7 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
         meta_optimizer.step()
         meta_optimizer2.zero_grad()
-        meta_loss.backward(inputs=list(scoring2.parameters()))
+        meta_loss2.backward(inputs=list(scoring2.parameters()))
         torch.nn.utils.clip_grad_norm_(scoring2.parameters(), max_norm=2)
         meta_optimizer2.step()
         meta_query_losses.append(q_loss.item())
