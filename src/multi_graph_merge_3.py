@@ -646,7 +646,7 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
             s_y1 = s_y1.to(device)
             fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_source, fast_weights, bn_vars)
             fast_losses.append(fast_loss.item())
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
+            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)),
                                        args.meta_batch_size)
             s_x1 = s_x1.to(device)
             s_y1 = s_y1.to(device)
