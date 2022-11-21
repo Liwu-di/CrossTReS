@@ -705,7 +705,7 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         meta_loss = q_loss + weights_mean * args.weight_reg
         meta_loss2 = q_loss + weights_mean2 * args.weight_reg
         meta_optimizer.zero_grad()
-        meta_loss.backward(inputs=list(scoring.parameters()))
+        meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
         torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
         meta_optimizer.step()
         meta_optimizer2.zero_grad()
