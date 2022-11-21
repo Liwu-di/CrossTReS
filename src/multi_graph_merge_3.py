@@ -781,7 +781,7 @@ for ep in range(num_epochs):
     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_t)
     with torch.no_grad():
         source_weights = scoring(fused_emb_s, fused_emb_t)
-        source_weights2 = scoring(fused_emb_s2, fused_emb_t)
+        source_weights2 = scoring2(fused_emb_s2, fused_emb_t)
         source_weight_list.append(list(source_weights.cpu().numpy()))
         source_weight_list.extend(list(source_weights2.cpu().numpy))
 
