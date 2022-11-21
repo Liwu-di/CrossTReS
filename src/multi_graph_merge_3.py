@@ -794,6 +794,7 @@ for ep in range(num_epochs):
     # implement a moving average
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
+        source_weights_ma2 = torch.ones_like(source_weights2, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
