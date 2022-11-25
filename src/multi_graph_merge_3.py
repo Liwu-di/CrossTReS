@@ -732,8 +732,7 @@ ny_time_dc, _, __ = min_max_normalize(ny_time_dc.sum(axis=2))
 log(ny_time_dc.shape, _, __)
 chi_time_dc, _, __ = min_max_normalize(chi_time_dc.sum(axis=2))
 log(chi_time_dc.shape, _, __)
-ny_time_dc = torch.from_numpy(ny_time_dc).to(device)
-chi_time_dc = torch.from_numpy(chi_time_dc).to(device)
+
 
 
 
@@ -810,8 +809,8 @@ for ep in range(num_epochs):
         source_weights_ma2 = torch.ones_like(source_weights2, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
-    source_weights_ma = source_weights_ma * torch.from_numpy(ny_time_dc[mask_source]).to(device)
-    source_weights_ma2 = source_weights_ma2 * torch.from_numpy(ny_time_dc[mask_source]).to(device)
+    source_weights_ma = source_weights_ma * torch.from_numpy(ny_time_dc[mask_source])
+    source_weights_ma2 = source_weights_ma2 * torch.from_numpy(chi_time_dc[mask_source2])
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
     # train network on source
