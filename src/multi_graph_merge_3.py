@@ -724,6 +724,17 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                        format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size,
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
+
+
+t1 = np.load("./time_weight/time_weight1.npy")
+t2 = np.load("./time_weight/time_weight2.npy")
+t1, _, __ = min_max_normalize(t1.sum(axis=2))
+log(t1.shape, _, __)
+t2, _, __ = min_max_normalize(t2.sum(axis=2))
+log(t2.shape, _, __)
+
+
+
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
