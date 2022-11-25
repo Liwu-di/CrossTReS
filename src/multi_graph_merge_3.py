@@ -726,12 +726,12 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 
 
-t1 = np.load("./time_weight/time_weight1.npy")
-t2 = np.load("./time_weight/time_weight2.npy")
-t1, _, __ = min_max_normalize(t1.sum(axis=2))
-log(t1.shape, _, __)
-t2, _, __ = min_max_normalize(t2.sum(axis=2))
-log(t2.shape, _, __)
+ny_time_dc = np.load("./time_weight/time_weight1.npy")
+chi_time_dc = np.load("./time_weight/time_weight2.npy")
+ny_time_dc, _, __ = min_max_normalize(ny_time_dc.sum(axis=2))
+log(ny_time_dc.shape, _, __)
+chi_time_dc, _, __ = min_max_normalize(chi_time_dc.sum(axis=2))
+log(chi_time_dc.shape, _, __)
 
 
 
@@ -808,6 +808,8 @@ for ep in range(num_epochs):
         source_weights_ma2 = torch.ones_like(source_weights2, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
+    source_weights_ma = source_weights_ma * ny_time_dc
+    source_weights_ma2 = source_weights_ma2 * chi_time_dc
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
     # train network on source
