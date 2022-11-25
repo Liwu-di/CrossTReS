@@ -732,6 +732,8 @@ ny_time_dc, _, __ = min_max_normalize(ny_time_dc.sum(axis=2))
 log(ny_time_dc.shape, _, __)
 chi_time_dc, _, __ = min_max_normalize(chi_time_dc.sum(axis=2))
 log(chi_time_dc.shape, _, __)
+ny_time_dc = torch.from_numpy(ny_time_dc).to(device)
+chi_time_dc = torch.from_numpy(chi_time_dc).to(device)
 
 
 
