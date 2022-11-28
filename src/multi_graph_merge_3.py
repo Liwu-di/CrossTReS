@@ -29,8 +29,9 @@ from PaperCrawlerUtil.research_util import *
 
 basic_config(logs_style=LOG_STYLE_ALL)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
-
+long_term_save = {}
 args = params()
+long_term_save["args"] = args.__str__()
 c = ast.literal_eval(args.c)
 record = ResearchRecord(**c)
 record_id = record.insert(__file__, get_timestamp(), args.__str__())
@@ -562,6 +563,11 @@ with torch.no_grad():
     fused_emb_s2, _ = fusion(views)
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
     fused_emb_t, _ = fusion(views)
+
+long_term_save["emb_losses"] = emb_losses
+long_term_save["mmd_losses"] = mmd_losses
+long_term_save["edge_losses"] = edge_losses
+
 # mask_source.reshape(-1) 返回的是一系列bool值，整行的含义是去除false对应的值
 # reshape(-1)的含义是，不指定变换之后有多少行，将原来的tensor变成一列（default）
 emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
@@ -718,6 +724,21 @@ avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_t)
 # 后期要用这个参数
 source_weights_ma_list = []
 source_weight_list = []
+train_emb_losses = []
+average_meta_query_loss = []
+source_validation_rmse = []
+target_validation_rmse = []
+source_validation_mae = []
+target_validation_mae = []
+train_target_val_loss = []
+train_source_val_loss = []
+target_pred_loss = []
+target_train_val_loss = []
+target_train_test_loss = []
+validation_rmse = []
+validation_mae = []
+test_rmse = []
+test_mae = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
@@ -751,6 +772,7 @@ for ep in range(num_epochs):
         emb_losses.append(loss_emb_)
         mmd_losses.append(loss_mmd_)
         edge_losses.append(loss_et_)
+        train_emb_losses.append((loss_emb_, loss_mmd_, loss_et_))
     # evaluate embeddings
     with torch.no_grad():
         views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
@@ -827,6 +849,7 @@ for ep in range(num_epochs):
         (time.time() - start_time, ep, avg_q_loss, source_weights_ma.mean().item(), torch.var(source_weights_ma).item(),
          avg_source_loss, avg_target_loss))
     writer.add_scalar("average meta query loss", avg_q_loss, ep)
+    average_meta_query_loss.append(avg_q_loss)
     writer.add_scalar("source weight mean", source_weights_ma.mean().item(), ep)
     writer.add_scalar("avg_source_loss", avg_source_loss, ep)
     writer.add_scalar("avg_source_loss2", avg_source_loss2, ep)
@@ -853,14 +876,20 @@ for ep in range(num_epochs):
     writer.add_scalar("source validation mse2", mae_s_val2 * (smax2 - smin2), ep)
     writer.add_scalar("target validation rmse_val", rmse_val * (max_val - min_val), ep)
     writer.add_scalar("target validation mae_val", mae_val * (max_val - min_val), ep)
+    source_validation_rmse.append(rmse_s_val * (smax - smin))
+    source_validation_mae.append(mae_s_val * (smax - smin))
+    target_validation_mae.append(mae_val * (max_val - min_val))
+    target_validation_rmse.append(rmse_val * (max_val - min_val))
     sums = 0
     for i in range(len(target_val_losses)):
         sums = sums + target_val_losses[i].mean(0).sum().item()
-    writer.add_scalar("train source val loss", sums, ep)
+    writer.add_scalar("train target val loss", sums, ep)
+    train_target_val_loss.append(sums)
     sums = 0
     for i in range(len(source_val_losses)):
         sums = sums + source_val_losses[i].mean(0).sum().item()
-    writer.add_scalar("train target val loss", sums, ep)
+    writer.add_scalar("train source val loss", sums, ep)
+    train_source_val_loss.append(sums)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 
@@ -870,6 +899,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
     log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
+    target_pred_loss.append(np.mean(avg_loss))
     net.eval()
     rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
@@ -877,9 +907,11 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     for i in range(len(val_losses)):
         sums = sums + val_losses[i].mean(0).sum().item()
     writer.add_scalar("target train val loss", sums, ep)
+    target_train_val_loss.append(sums)
     sums = 0
     for i in range(len(test_losses)):
         sums = sums + test_losses[i].mean(0).sum().item()
+    target_train_test_loss.append(sums)
     writer.add_scalar("target train test loss", sums, ep)
     if rmse_val < best_val_rmse:
         best_val_rmse = rmse_val
@@ -892,8 +924,30 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test mae", mae_test * (max_val - min_val), ep - num_epochs)
+    validation_rmse.append(rmse_val * (max_val - min_val))
+    validation_mae.append(mae_val * (max_val - min_val))
+    test_rmse.append(rmse_test * (max_val - min_val))
+    test_mae.append(mae_test * (max_val - min_val))
     log()
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+
+long_term_save["source_weights_ma_list"] = source_weights_ma_list
+long_term_save["source_weight_list"] = source_weight_list
+long_term_save["train_emb_losses"] = train_emb_losses
+long_term_save["average_meta_query_loss"] = average_meta_query_loss
+long_term_save["source_validation_rmse"] = source_validation_rmse
+long_term_save["target_validation_rmse"] = target_validation_rmse
+long_term_save["source_validation_mae"] = source_validation_mae
+long_term_save["target_validation_mae"] = target_validation_mae
+long_term_save["train_target_val_loss"] = train_target_val_loss
+long_term_save["train_source_val_loss"] = train_source_val_loss
+long_term_save["target_pred_loss"] = target_pred_loss
+long_term_save["target_train_val_loss"] = target_train_val_loss
+long_term_save["target_train_test_loss"] = target_train_test_loss
+long_term_save["validation_rmse"] = validation_rmse
+long_term_save["validation_mae"] = validation_mae
+long_term_save["test_rmse"] = test_rmse
+long_term_save["test_mae"] = test_mae
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
 root_dir = local_path_generate(
@@ -909,9 +963,7 @@ torch.save(mvgat, root_dir + "/mvgat.pth")
 torch.save(fusion, root_dir + "/fusion.pth")
 torch.save(scoring, root_dir + "/scoring.pth")
 torch.save(edge_disc, root_dir + "/edge_disc.pth")
-save_obj(source_weights_ma_list, path=local_path_generate("weight", "source_weights_ma_list_{}.list".format(scity)))
-save_obj(source_weight_list, path=local_path_generate("weight", "source_weight_list_{}.list".format(scity)))
-
+save_obj(long_term_save, local_path_generate("experiment_data", "data.collection"))
 record.update(record_id, get_timestamp(),
               "%.4f,%.4f" %
               (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
