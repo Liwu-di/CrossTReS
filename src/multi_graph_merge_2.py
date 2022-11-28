@@ -292,9 +292,10 @@ else:
             self.emb_dim = emb_dim
             self.score = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
                                        nn.ReLU(inplace=True),
-                                       nn.Linear(self.emb_dim // 2, self.emb_dim // 2),
-                                       nn.ReLU(inplace=True),
-                                       nn.Linear(self.emb_dim // 2, 1))
+                                       nn.Linear(self.emb_dim // 2, self.emb_dim // 2))
+            self.dis = nn.Sequential(nn.Linear((self.emb_dim // 2) * 2, self.emb_dim // 2),
+                                     nn.Linear(self.emb_dim // 2, self.emb_dim // 2),
+                                     nn.Linear(self.emb_dim // 2, 1))
             self.source_mask = source_mask
             self.target_mask = target_mask
 
@@ -311,11 +312,14 @@ else:
             """
             # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
             # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
-            target_context = target_emb[self.target_mask.view(-1).bool()].mean(0)
-            target_context_stack = tuple(target_context.reshape((1, self.emb_dim)) for i in range(source_emb.shape[0]))
-            target_context_stack = torch.cat(target_context_stack, dim=0)
-            source_emb = source_emb - target_context_stack
-            return self.score(source_emb)[self.source_mask.view(-1).bool()]
+            target_context = torch.tanh(self.score(target_emb[self.target_mask.view(-1).bool()]).mean(0))
+            source_trans_emb = self.score(source_emb)
+            target_context_emb = [torch.Tensor(target_context).reshape((1, target_context.shape[0])) for i in
+                                  range(source_trans_emb.shape[0])]
+            target_context_emb = torch.concat(target_context_emb, dim=0)
+            tem = torch.concat((source_trans_emb, target_context_emb), dim=1)
+            source_score = self.dis(tem)
+            return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
 
 
 mmd = MMD_loss()
