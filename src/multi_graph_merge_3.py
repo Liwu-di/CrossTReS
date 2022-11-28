@@ -430,8 +430,6 @@ def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=No
             if weights is not None:
                 # log(loss.shape)
                 # log(weights.shape)
-                log(loss.shape)
-                log(weights.shape)
                 loss = (loss * weights.view(1, 1, -1)).mean(0).sum()
             else:
                 loss = loss.mean(0).sum()
