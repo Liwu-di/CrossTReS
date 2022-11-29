@@ -89,7 +89,8 @@ target_data, max_val, min_val = min_max_normalize(target_data)
 
 source_emb_label2 = masked_percentile_label(source_data2.sum(0).reshape(-1), mask_source2.reshape(-1))
 source_data2, smax2, smin2 = min_max_normalize(source_data2)
-
+if args.data_amount != 0:
+    target_data = target_data[-args.data_amount * 24:, :, :]
 from dtaidistance import dtw
 
 time_weight1 = np.zeros((source_data.shape[1], source_data.shape[2], target_data.shape[1] * target_data.shape[2]))
