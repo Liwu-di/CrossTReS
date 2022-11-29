@@ -1465,7 +1465,17 @@ torch.save(mvgat, root_dir + "/mvgat.pth")
 torch.save(fusion, root_dir + "/fusion.pth")
 torch.save(scoring, root_dir + "/scoring.pth")
 torch.save(edge_disc, root_dir + "/edge_disc.pth")
-save_obj(long_term_save, local_path_generate("experiment_data", "data.collection"))
+save_obj(long_term_save,
+         local_path_generate("experiment_data",
+                             "data_{}.collection".format(
+                                 "{}-batch-{}-{}-{}-{}-amount-{}-time-{}".format(
+                                     "多城市{}and{}-{}".format(args.scity, args.scity2, args.tcity),
+                                     args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+                                     get_timestamp(split="-")
+                                 )
+                             )
+                             )
+         )
 record.update(record_id, get_timestamp(),
               "%.4f,%.4f" %
               (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))

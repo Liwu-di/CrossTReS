@@ -97,7 +97,6 @@ target_data, max_val, min_val = min_max_normalize(target_data)
 source_emb_label2 = masked_percentile_label(source_data2.sum(0).reshape(-1), mask_source2.reshape(-1))
 source_data2, smax2, smin2 = min_max_normalize(source_data2)
 
-
 # [(5898, 6, 20, 23), (5898, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23)]
 # 第一维是数量，第二维是每条数据中的数量
 source_train_x, source_train_y, source_val_x, source_val_y, source_test_x, source_test_y = split_x_y(source_data, lag)
@@ -131,7 +130,6 @@ log("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(
 log("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
 log("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
 
-
 # 这些代码 numpy -> Tensor -> TensorDataset -> DataLoader
 target_train_dataset = TensorDataset(torch.Tensor(target_train_x), torch.Tensor(target_train_y))
 target_val_dataset = TensorDataset(torch.Tensor(target_val_x), torch.Tensor(target_val_y))
@@ -147,7 +145,6 @@ source_test_dataset2 = TensorDataset(torch.Tensor(source_test_x2), torch.Tensor(
 source_test_loader2 = DataLoader(source_test_dataset2, batch_size=args.batch_size)
 source_dataset2 = TensorDataset(torch.Tensor(source_x2), torch.Tensor(source_y2))
 source_loader2 = DataLoader(source_dataset2, batch_size=args.batch_size, shuffle=True)
-
 
 # Load auxiliary data: poi data
 # (20, 23, 14)
@@ -166,8 +163,6 @@ transform = TfidfTransformer()
 source_norm_poi2 = np.array(transform.fit_transform(source_poi2).todense())
 transform = TfidfTransformer()
 target_norm_poi = np.array(transform.fit_transform(target_poi).todense())
-
-
 
 # Build graphs
 # add_self_loop 增加一个自循环，对角线的值=1
@@ -224,7 +219,6 @@ for i in range(len(source_graphs)):
     source_graphs[i] = source_graphs[i].to(device)
     source_graphs2[i] = source_graphs2[i].to(device)
     target_graphs[i] = target_graphs[i].to(device)
-
 
 source_edges, source_edge_labels = graphs_to_edge_labels(source_graphs)
 source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
@@ -348,6 +342,8 @@ best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
 p_bar.process(5, 1, 5)
+
+
 def evaluate(net_, loader, spatial_mask):
     """
     评估函数，spatial_mask去掉了一些无效数据
@@ -441,6 +437,8 @@ def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=No
         if num_iters is not None and num_iters == i:
             break
     return epoch_loss
+
+
 def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
     """
     1. 图卷积提取图特征 mvgat
@@ -472,6 +470,7 @@ def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
     loss = -loss_s - loss_d + loss_poi
 
     return loss, fused_emb, embs
+
 
 def train_emb_epoch2():
     """
@@ -580,6 +579,8 @@ cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 log("[%.2fs]Pretraining embedding, source cvscore %.4f, source2 cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_s2, cvscore_t))
 log()
+
+
 def batch_sampler_time(tensor_list, batch_size):
     """
     返回抽样数据
@@ -625,6 +626,8 @@ def net_fix(source, y, weight, mask, fast_weights, bn_vars):
     for name, grad in zip(fast_weights.keys(), grads):
         fast_weights[name] = fast_weights[name] - args.innerlr * grad
     return fast_loss, fast_weights, bn_vars
+
+
 def meta_train_epoch(s_embs, s2_embs, t_embs):
     """
     0. 计算source_weights，通过scoring网络
@@ -647,16 +650,19 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         source_weights2 = scoring2(s2_embs, t_embs)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)), args.meta_batch_size)
+            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
+                                       args.meta_batch_size)
             s_x1 = s_x1.to(device)
             s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_source, fast_weights, bn_vars)
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_source, fast_weights,
+                                                       bn_vars)
             fast_losses.append(fast_loss.item())
             s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)),
                                        args.meta_batch_size)
             s_x1 = s_x1.to(device)
             s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights2, th_mask_source2, fast_weights, bn_vars)
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights2, th_mask_source2, fast_weights,
+                                                       bn_vars)
             fast_losses.append(fast_loss.item())
 
         # inner loop on target, simulate fine-tune
@@ -720,6 +726,8 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         meta_optimizer2.step()
         meta_query_losses.append(q_loss.item())
     return np.mean(meta_query_losses)
+
+
 avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_t)
 # 后期要用这个参数
 source_weights_ma_list = []
@@ -746,16 +754,12 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 
-
 ny_time_dc = np.load("./time_weight/time_weight1.npy")
 chi_time_dc = np.load("./time_weight/time_weight2.npy")
 ny_time_dc, _, __ = min_max_normalize(ny_time_dc.sum(axis=2))
 log(ny_time_dc.shape, _, __)
 chi_time_dc, _, __ = min_max_normalize(chi_time_dc.sum(axis=2))
 log(chi_time_dc.shape, _, __)
-
-
-
 
 for ep in range(num_epochs):
     net.train()
@@ -800,7 +804,7 @@ for ep in range(num_epochs):
         cvscore_mix = cross_validate(logreg, mix_embs, mix_labels)['test_score'].mean()
         cvscore_mix2 = cross_validate(logreg, mix_embs2, mix_labels2)['test_score'].mean()
         log(
-            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f, source cvscore2 %.4f, mixcvscore2 %.4f"% \
+            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f, source cvscore2 %.4f, mixcvscore2 %.4f" % \
             (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
              cvscore_t, cvscore_mix, cvscore_s2, cvscore_mix2))
     # if ep == num_epochs - 1:
@@ -810,7 +814,6 @@ for ep in range(num_epochs):
     #     with torch.no_grad():
     #         trans_emb_s = scoring.score(fused_emb_s)
     #         trans_emb_t = scoring.score(fused_emb_t)
-
 
     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_t)
     with torch.no_grad():
@@ -840,7 +843,7 @@ for ep in range(num_epochs):
     source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
                               num_iters=args.pretrain_iter)
     source_loss2 = train_epoch(net, source_loader2, pred_optimizer, weights=source_weights_ma2, mask=th_mask_source2,
-                              num_iters=args.pretrain_iter)
+                               num_iters=args.pretrain_iter)
     avg_source_loss = np.mean(source_loss)
     avg_source_loss2 = np.mean(source_loss2)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
@@ -866,7 +869,8 @@ for ep in range(num_epochs):
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
     log(
-        "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
+        "Epoch %d, source validation rmse %.4f, mae %.4f" % (
+        ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log()
@@ -891,7 +895,6 @@ for ep in range(num_epochs):
     writer.add_scalar("train source val loss", sums, ep)
     train_source_val_loss.append(sums)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
-
 
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     # fine-tuning
@@ -963,7 +966,17 @@ torch.save(mvgat, root_dir + "/mvgat.pth")
 torch.save(fusion, root_dir + "/fusion.pth")
 torch.save(scoring, root_dir + "/scoring.pth")
 torch.save(edge_disc, root_dir + "/edge_disc.pth")
-save_obj(long_term_save, local_path_generate("experiment_data", "data.collection"))
+save_obj(long_term_save,
+         local_path_generate("experiment_data",
+                             "data_{}.collection".format(
+                                 "{}-batch-{}-{}-{}-{}-amount-{}-time-{}".format(
+                                     "多城市{}and{}-{}".format(args.scity, args.scity2, args.tcity),
+                                     args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+                                     get_timestamp(split="-")
+                                 )
+                             )
+                             )
+         )
 record.update(record_id, get_timestamp(),
               "%.4f,%.4f" %
               (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
