@@ -754,12 +754,15 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 
-s1_time_t = np.load("./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity, tcity, datatype, dataname, args.data_amount))
-s2_time_t = np.load("./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity2, tcity, datatype, dataname, args.data_amount))
-s1_time_t, _, __ = min_max_normalize(s1_time_t.sum(axis=2))
-log(s1_time_t.shape, _, __)
-s2_time_t, _, __ = min_max_normalize(s2_time_t.sum(axis=2))
-log(s2_time_t.shape, _, __)
+if args.is_st_weight_static == 1:
+    s1_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity, tcity, datatype, dataname, args.data_amount))
+    s2_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity2, tcity, datatype, dataname, args.data_amount))
+    s1_time_t, _, __ = min_max_normalize(s1_time_t.sum(axis=2))
+    log(s1_time_t.shape, _, __)
+    s2_time_t, _, __ = min_max_normalize(s2_time_t.sum(axis=2))
+    log(s2_time_t.shape, _, __)
 
 for ep in range(num_epochs):
     net.train()
@@ -834,8 +837,9 @@ for ep in range(num_epochs):
         source_weights_ma2 = torch.ones_like(source_weights2, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
-    source_weights_ma = source_weights_ma + torch.from_numpy(s1_time_t[mask_source]).to(device)
-    source_weights_ma2 = source_weights_ma2 + torch.from_numpy(s2_time_t[mask_source2]).to(device)
+    if args.is_st_weight_static == 1:
+        source_weights_ma = source_weights_ma + torch.from_numpy(s1_time_t[mask_source]).to(device)
+        source_weights_ma2 = source_weights_ma2 + torch.from_numpy(s2_time_t[mask_source2]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
     # train network on source
