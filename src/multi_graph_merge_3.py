@@ -647,7 +647,7 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         fast_losses = []
         fast_weights, bn_vars = get_weights_bn_vars(net)
         source_weights = scoring(s_embs, t_embs)
-        source_weights2 = scoring2(s2_embs, t_embs)
+        source_weights2 = scoring(s2_embs, t_embs)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
             s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
@@ -714,16 +714,11 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
         q_loss = torch.stack(q_losses).mean()
         weights_mean = (source_weights ** 2).mean()
         weights_mean2 = (source_weights2 ** 2).mean()
-        meta_loss = q_loss + weights_mean * args.weight_reg
-        meta_loss2 = q_loss + weights_mean2 * args.weight_reg
+        meta_loss = q_loss + weights_mean * args.weight_reg + weights_mean2 * args.weight_reg
         meta_optimizer.zero_grad()
         meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
         torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
         meta_optimizer.step()
-        meta_optimizer2.zero_grad()
-        meta_loss2.backward(inputs=list(scoring2.parameters()))
-        torch.nn.utils.clip_grad_norm_(scoring2.parameters(), max_norm=2)
-        meta_optimizer2.step()
         meta_query_losses.append(q_loss.item())
     return np.mean(meta_query_losses)
 
