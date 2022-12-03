@@ -236,7 +236,7 @@ if args.scoring == 1:
             self.source_mask = source_mask
             self.target_mask = target_mask
 
-        def forward(self, source_emb, target_emb):
+        def forward(self, source_emb, target_emb, source_mask, target_mask):
             """
             求源城市评分
             注意这里求评分，是source的每一个区域对于目标城市整体
@@ -249,7 +249,7 @@ if args.scoring == 1:
             """
             # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
             # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
-            target_context = torch.tanh(self.score(target_emb[self.target_mask.view(-1).bool()]).mean(0))
+            target_context = torch.tanh(self.score(target_emb[target_mask.view(-1).bool()]).mean(0))
             source_trans_emb = self.score(source_emb)
             # 460*32 * 1*32 = 462*32, 这里乘法表示1*32列表去乘460*32的每一行，逐元素
             # i.e.
@@ -267,7 +267,7 @@ if args.scoring == 1:
             # source_score /= source_norm
             # source_score /= target_norm
             # log(source_score)
-            return F.relu(torch.tanh(source_score))[self.source_mask.view(-1).bool()]
+            return F.relu(torch.tanh(source_score))[source_mask.view(-1).bool()]
 
 else:
     class Scoring(nn.Module):
@@ -314,7 +314,6 @@ ma_param = args.ma_coef
 mvgat = MVGAT(len(source_graphs), num_gat_layers, in_dim, hidden_dim, emb_dim, num_heads, True).to(device)
 fusion = FusionModule(len(source_graphs), emb_dim, 0.8).to(device)
 scoring = Scoring(emb_dim, th_mask_source, th_mask_target).to(device)
-scoring2 = Scoring(emb_dim, th_mask_source2, th_mask_target).to(device)
 edge_disc = EdgeTypeDiscriminator(len(source_graphs), emb_dim).to(device)
 mmd = MMD_loss()
 # we still need a scoring model.
@@ -337,7 +336,6 @@ emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edg
 emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
 # 元学习部分
 meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=args.weight_decay)
-meta_optimizer2 = optim.Adam(scoring2.parameters(), lr=args.outerlr, weight_decay=args.weight_decay)
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
@@ -646,8 +644,8 @@ def meta_train_epoch(s_embs, s2_embs, t_embs):
     for meta_ep in range(args.outeriter):
         fast_losses = []
         fast_weights, bn_vars = get_weights_bn_vars(net)
-        source_weights = scoring(s_embs, t_embs)
-        source_weights2 = scoring(s2_embs, t_embs)
+        source_weights = scoring(s_embs, t_embs, th_mask_source, th_mask_target)
+        source_weights2 = scoring(s2_embs, t_embs, th_mask_source2, th_mask_target)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
             s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
@@ -815,8 +813,8 @@ for ep in range(num_epochs):
 
     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_t)
     with torch.no_grad():
-        source_weights = scoring(fused_emb_s, fused_emb_t)
-        source_weights2 = scoring2(fused_emb_s2, fused_emb_t)
+        source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_source, th_mask_target)
+        source_weights2 = scoring(fused_emb_s2, fused_emb_t, th_mask_source2, th_mask_target)
         source_weight_list.append(list(source_weights.cpu().numpy()))
         source_weight_list.extend(list(source_weights2.cpu().numpy()))
 
