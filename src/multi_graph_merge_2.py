@@ -1266,6 +1266,32 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                        format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size,
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
+if args.is_st_weight_static == 1:
+    s1_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity, tcity, datatype, dataname, args.data_amount))
+    s2_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity2, tcity, datatype, dataname, args.data_amount))
+    s1_time_t, _, __ = min_max_normalize(s1_time_t.sum(axis=2))
+    log(s1_time_t.shape, _, __)
+    s2_time_t, _, __ = min_max_normalize(s2_time_t.sum(axis=2))
+    log(s2_time_t.shape, _, __)
+time_weight = np.zeros((A_star.shape[1], A_star.shape[2]))
+s2_weight = [s2_time_t[i[0], i[1]] for i in include_8_nearist_2d]
+for i in range(source_data.shape[1]):
+    for j in range(source_data.shape[2]):
+        if i < source_data.shape[1] and j < source_data.shape[2]:
+            time_weight[i][j] = s1_time_t[i][j]
+count = 0
+for i in range(source_data.shape[1], A_star.shape[1]):
+    for j in range(A_star.shape[2]):
+        if count < len(s2_weight):
+            time_weight[i][j] = s2_weight[count]
+        else:
+            time_weight[i][j] = 0
+        count = count + 1
+time_weight = torch.from_numpy(time_weight)
+log()
+
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -1339,7 +1365,10 @@ for ep in range(num_epochs):
     # implement a moving average
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-    source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+    if args.is_st_weight_static == 1:
+        time_score = args.time_score_weight
+        space_score = args.space_score_weight
+        source_weights_ma = space_score * source_weights_ma + time_score * time_weight.to(device).reshape(-1)[A_star_mask.reshape(-1)]
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     # train network on source
     # 有了参数lambda rs，训练net网络
