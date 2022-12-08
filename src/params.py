@@ -73,7 +73,7 @@ def params():
     parser.add_argument("--pretrain_iter", type=int, default=-1,
                         help='Pre-training iterations per pre-training epoch. ')
     # 是否启用邻域
-    parser.add_argument("--near", type=int, default=0,
+    parser.add_argument("--near", type=int, default=1,
                         help='0 启用 1 不启用 ')
     # 是否启用全局平均还是分位数平均
     parser.add_argument("--mean", type=int, default=0,
