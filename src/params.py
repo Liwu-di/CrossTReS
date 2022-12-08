@@ -89,6 +89,8 @@ def params():
     parser.add_argument("--time_meta", type=int, default=1, help="time_meta")
     parser.add_argument("--meta_batch_size", type=int, default=16, help="time_meta")
     parser.add_argument("--is_st_weight_static", type=int, default=1, help="0不使用，1使用时序评分")
+    parser.add_argument("--time_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
+    parser.add_argument("--space_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
     args = parser.parse_args()
 
     if args.seed != -1:
