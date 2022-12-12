@@ -831,10 +831,8 @@ for ep in range(num_epochs):
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
     if args.is_st_weight_static == 1:
-        time_score = args.time_score_weight
-        space_score = args.space_score_weight
-        source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(s1_time_t[mask_source]).to(device)
-        source_weights_ma2 = space_score * source_weights_ma2 + time_score * torch.from_numpy(s2_time_t[mask_source2]).to(device)
+        source_weights_ma = source_weights_ma + torch.from_numpy(s1_time_t[mask_source]).to(device)
+        source_weights_ma2 = source_weights_ma2 + torch.from_numpy(s2_time_t[mask_source2]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
     # train network on source
