@@ -36,194 +36,25 @@ c = ast.literal_eval(args.c)
 record = ResearchRecord(**c)
 record_id = record.insert(__file__, get_timestamp(), args.__str__())
 p_bar.process(0, 1, 5)
+source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
+source_train_y, source_test_x, source_val_x, source_poi_adj, source_poi_adj2, dataname, target_train_x, \
+th_mask_source2, th_mask_source, target_test_loader, target_poi, target_od_adj, \
+source_dataset, mask_source, target_graphs, target_val_dataset, max_val, scity2, smin2, \
+target_emb_label, tcity, source_road_adj2, gpu_available, source_edges2, \
+mask_source2, source_poi_cos, source_data, source_graphs, lng_source, source_road_adj, target_d_adj, \
+target_val_x, source_poi2, scity, target_t_adj, lat_source, lat_target, target_test_x, \
+source_x, target_val_y, lng_source2, num_tuine_epochs, source_d_adj, source_edge_labels, source_prox_adj, \
+source_loader, source_graphs2, transform, source_t_adj2, smax2, target_train_loader, \
+source_test_dataset2, source_poi_cos2, source_od_adj2, target_s_adj, target_test_dataset, \
+source_test_y2, source_y, source_dataset2, target_road_adj, source_test_loader, target_poi_adj, \
+smax, start_time, target_test_y, lng_target, source_test_loader2, \
+source_prox_adj2, target_data, source_x2, target_train_dataset, source_test_dataset, source_test_x2, source_od_adj, target_val_loader, smin, target_poi_cos, target_edge_labels, \
+source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2 ,source_emb_label, \
+target_norm_poi, source_norm_poi, source_train_x, datatype, source_val_y, mask_target, \
+source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
+source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
+target_train_y, th_mask_target, device, p_bar = load_process_data(args, p_bar)
 
-os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
-gpu_available = torch.cuda.is_available()
-if gpu_available:
-    device = torch.device('cuda:0')
-else:
-    device = torch.device('cpu')
-dataname = args.dataname
-scity = args.scity
-scity2 = args.scity2
-tcity = args.tcity
-datatype = args.datatype
-num_epochs = args.num_epochs
-num_tuine_epochs = args.num_tuine_epochs
-start_time = time.time()
-log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
-    (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
-p_bar.process(1, 1, 5)
-# Load spatio temporal data
-# (8784, 21, 20)
-# 8784 = 366 * 24
-target_data = np.load("../data/%s/%s%s_%s.npy" % (tcity, dataname, tcity, datatype))
-# (21, 20) 经纬度分割
-lng_target, lat_target = target_data.shape[1], target_data.shape[2]
-# numpy.sum()，求和某一维度或者维度为none时，求和所有，减掉一个维度
-# 此处，target_data (8784, 21, 20) -> (21, 20)
-# 然后，通过对于每个元素判断是否大于0， 转成Bool向量
-mask_target = target_data.sum(0) > 0
-# reshape （21， 20） -》 （1， 21， 20）
-th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to(device)
-log("%d valid regions in target" % np.sum(mask_target))
-# (（21， 20）-> 420, （21， 20）-> 420)
-target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
-# (8784, 20, 23)
-source_data = np.load("../data/%s/%s%s_%s.npy" % (scity, dataname, scity, datatype))
-log(source_data.shape)
-# (20, 23)
-lng_source, lat_source = source_data.shape[1], source_data.shape[2]
-mask_source = source_data.sum(0) > 0
-# mask -> th_mask = (20, 23) -> (1, 20, 23)
-th_mask_source = torch.Tensor(mask_source.reshape(1, lng_source, lat_source)).to(device)
-log("%d valid regions in source" % np.sum(mask_source))
-
-source_data2 = np.load("../data/%s/%s%s_%s.npy" % (scity2, dataname, scity2, datatype))
-log(source_data2.shape)
-lng_source2, lat_source2 = source_data2.shape[1], source_data2.shape[2]
-mask_source2 = source_data2.sum(0) > 0
-th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
-log("%d valid regions in source" % np.sum(mask_source2))
-
-p_bar.process(2, 1, 5)
-# 按照百分比分配标签
-source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
-
-lag = [-6, -5, -4, -3, -2, -1]
-source_data, smax, smin = min_max_normalize(source_data)
-target_data, max_val, min_val = min_max_normalize(target_data)
-
-source_emb_label2 = masked_percentile_label(source_data2.sum(0).reshape(-1), mask_source2.reshape(-1))
-source_data2, smax2, smin2 = min_max_normalize(source_data2)
-
-# [(5898, 6, 20, 23), (5898, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23)]
-# 第一维是数量，第二维是每条数据中的数量
-source_train_x, source_train_y, source_val_x, source_val_y, source_test_x, source_test_y = split_x_y(source_data, lag)
-source_train_x2, source_train_y2, source_val_x2, source_val_y2, source_test_x2, source_test_y2 = split_x_y(source_data2,
-                                                                                                           lag)
-# we concatenate all source data
-# (8778, 6, 20, 23)
-source_x = np.concatenate([source_train_x, source_val_x, source_test_x], axis=0)
-# (8778, 1, 20, 23)
-source_y = np.concatenate([source_train_y, source_val_y, source_test_y], axis=0)
-source_x2 = np.concatenate([source_train_x2, source_val_x2, source_test_x2], axis=0)
-source_y2 = np.concatenate([source_train_y2, source_val_y2, source_test_y2], axis=0)
-target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data, lag)
-p_bar.process(3, 1, 5)
-if args.data_amount != 0:
-    # 负号表示从倒数方向数，
-    # i.e.
-    # a = [12, 3, 4, 5, 6, 7, 8]
-    # c, d = a[-2:], a[:-2]
-    # print(c)
-    # print(d)
-    # [7, 8]
-    # [12, 3, 4, 5, 6]
-    target_train_x = target_train_x[-args.data_amount * 24:, :, :, :]
-    target_train_y = target_train_y[-args.data_amount * 24:, :, :, :]
-log("Source split to: x %s, y %s" % (str(source_x.shape), str(source_y.shape)))
-# log("val_x %s, val_y %s" % (str(source_val_x.shape), str(source_val_y.shape)))
-# log("test_x %s, test_y %s" % (str(source_test_x.shape), str(source_test_y.shape)))
-log("Source2 split to: x %s, y %s" % (str(source_x2.shape), str(source_y2.shape)))
-log("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(target_train_y.shape)))
-log("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
-log("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
-
-# 这些代码 numpy -> Tensor -> TensorDataset -> DataLoader
-target_train_dataset = TensorDataset(torch.Tensor(target_train_x), torch.Tensor(target_train_y))
-target_val_dataset = TensorDataset(torch.Tensor(target_val_x), torch.Tensor(target_val_y))
-target_test_dataset = TensorDataset(torch.Tensor(target_test_x), torch.Tensor(target_test_y))
-target_train_loader = DataLoader(target_train_dataset, batch_size=args.batch_size, shuffle=True)
-target_val_loader = DataLoader(target_val_dataset, batch_size=args.batch_size)
-target_test_loader = DataLoader(target_test_dataset, batch_size=args.batch_size)
-source_test_dataset = TensorDataset(torch.Tensor(source_test_x), torch.Tensor(source_test_y))
-source_test_loader = DataLoader(source_test_dataset, batch_size=args.batch_size)
-source_dataset = TensorDataset(torch.Tensor(source_x), torch.Tensor(source_y))
-source_loader = DataLoader(source_dataset, batch_size=args.batch_size, shuffle=True)
-source_test_dataset2 = TensorDataset(torch.Tensor(source_test_x2), torch.Tensor(source_test_y2))
-source_test_loader2 = DataLoader(source_test_dataset2, batch_size=args.batch_size)
-source_dataset2 = TensorDataset(torch.Tensor(source_x2), torch.Tensor(source_y2))
-source_loader2 = DataLoader(source_dataset2, batch_size=args.batch_size, shuffle=True)
-
-# Load auxiliary data: poi data
-# (20, 23, 14)
-source_poi = np.load("../data/%s/%s_poi.npy" % (scity, scity))
-source_poi2 = np.load("../data/%s/%s_poi.npy" % (scity2, scity2))
-target_poi = np.load("../data/%s/%s_poi.npy" % (tcity, tcity))
-# (460, 14)
-source_poi = source_poi.reshape(lng_source * lat_source, -1)  # regions * classes
-source_poi2 = source_poi2.reshape(lng_source2 * lat_source2, -1)  # regions * classes
-target_poi = target_poi.reshape(lng_target * lat_target, -1)  # regions * classes
-transform = TfidfTransformer()
-# 规范正则化到（0，1）
-source_norm_poi = np.array(transform.fit_transform(source_poi).todense())
-transform = TfidfTransformer()
-# 规范正则化到（0，1）
-source_norm_poi2 = np.array(transform.fit_transform(source_poi2).todense())
-transform = TfidfTransformer()
-target_norm_poi = np.array(transform.fit_transform(target_poi).todense())
-
-# Build graphs
-# add_self_loop 增加一个自循环，对角线的值=1
-source_prox_adj = add_self_loop(build_prox_graph(lng_source, lat_source))
-source_prox_adj2 = add_self_loop(build_prox_graph(lng_source2, lat_source2))
-target_prox_adj = add_self_loop(build_prox_graph(lng_target, lat_target))
-source_road_adj = add_self_loop(build_road_graph(scity, lng_source, lat_source))
-source_road_adj2 = add_self_loop(build_road_graph(scity2, lng_source2, lat_source2))
-target_road_adj = add_self_loop(build_road_graph(tcity, lng_target, lat_target))
-source_poi_adj, source_poi_cos = build_poi_graph(source_norm_poi, args.topk)
-source_poi_adj2, source_poi_cos2 = build_poi_graph(source_norm_poi2, args.topk)
-target_poi_adj, target_poi_cos = build_poi_graph(target_norm_poi, args.topk)
-source_poi_adj = add_self_loop(source_poi_adj)
-source_poi_adj2 = add_self_loop(source_poi_adj2)
-target_poi_adj = add_self_loop(target_poi_adj)
-source_s_adj, source_d_adj, source_od_adj = build_source_dest_graph(scity, dataname, lng_source, lat_source, args.topk)
-source_s_adj2, source_d_adj2, source_od_adj2 = build_source_dest_graph(scity2, dataname, lng_source2, lat_source2,
-                                                                       args.topk)
-target_s_adj, target_d_adj, target_od_adj = build_source_dest_graph(tcity, dataname, lng_target, lat_target, args.topk)
-source_s_adj = add_self_loop(source_s_adj)
-source_s_adj2 = add_self_loop(source_s_adj2)
-source_t_adj = add_self_loop(source_d_adj)
-source_t_adj2 = add_self_loop(source_d_adj2)
-source_od_adj = add_self_loop(source_od_adj)
-source_od_adj2 = add_self_loop(source_od_adj2)
-target_s_adj = add_self_loop(target_s_adj)
-target_t_adj = add_self_loop(target_d_adj)
-target_od_adj = add_self_loop(target_od_adj)
-log("Source graphs: ")
-log("prox_adj: %d nodes, %d edges" % (source_prox_adj.shape[0], np.sum(source_prox_adj)))
-log("road adj: %d nodes, %d edges" % (source_road_adj.shape[0], np.sum(source_road_adj > 0)))
-log("poi_adj, %d nodes, %d edges" % (source_poi_adj.shape[0], np.sum(source_poi_adj > 0)))
-log("s_adj, %d nodes, %d edges" % (source_s_adj.shape[0], np.sum(source_s_adj > 0)))
-log("d_adj, %d nodes, %d edges" % (source_d_adj.shape[0], np.sum(source_d_adj > 0)))
-log()
-log("Source2 graphs: ")
-log("prox_adj: %d nodes, %d edges" % (source_prox_adj2.shape[0], np.sum(source_prox_adj2)))
-log("road adj: %d nodes, %d edges" % (source_road_adj2.shape[0], np.sum(source_road_adj2 > 0)))
-log("poi_adj, %d nodes, %d edges" % (source_poi_adj2.shape[0], np.sum(source_poi_adj2 > 0)))
-log("s_adj, %d nodes, %d edges" % (source_s_adj2.shape[0], np.sum(source_s_adj2 > 0)))
-log("d_adj, %d nodes, %d edges" % (source_d_adj2.shape[0], np.sum(source_d_adj2 > 0)))
-log()
-log("Target graphs:")
-log("prox_adj: %d nodes, %d edges" % (target_prox_adj.shape[0], np.sum(target_prox_adj)))
-log("road adj: %d nodes, %d edges" % (target_road_adj.shape[0], np.sum(target_road_adj > 0)))
-log("poi_adj, %d nodes, %d edges" % (target_poi_adj.shape[0], np.sum(target_poi_adj > 0)))
-log("s_adj, %d nodes, %d edges" % (target_s_adj.shape[0], np.sum(target_s_adj > 0)))
-log("d_adj, %d nodes, %d edges" % (target_d_adj.shape[0], np.sum(target_d_adj > 0)))
-log()
-source_graphs = adjs_to_graphs([source_prox_adj, source_road_adj, source_poi_adj, source_s_adj, source_d_adj])
-source_graphs2 = adjs_to_graphs([source_prox_adj2, source_road_adj2, source_poi_adj2, source_s_adj2, source_d_adj2])
-target_graphs = adjs_to_graphs([target_prox_adj, target_road_adj, target_poi_adj, target_s_adj, target_d_adj])
-for i in range(len(source_graphs)):
-    source_graphs[i] = source_graphs[i].to(device)
-    source_graphs2[i] = source_graphs2[i].to(device)
-    target_graphs[i] = target_graphs[i].to(device)
-
-source_edges, source_edge_labels = graphs_to_edge_labels(source_graphs)
-source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
-target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
-p_bar.process(4, 1, 5)
 if args.scoring == 1:
     # 评分模型
     class Scoring(nn.Module):
