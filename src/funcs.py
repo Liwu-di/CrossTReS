@@ -207,6 +207,64 @@ class MMD_loss(nn.Module):
         return loss
 
 
+class GradReverse(torch.autograd.Function):
+    """
+    Extension of grad reverse layer
+    """
+    @staticmethod
+    def forward(ctx, x, constant):
+        ctx.constant = constant
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_output = grad_output.neg() * ctx.constant
+        return grad_output, None
+
+    def grad_reverse(x, constant):
+        return GradReverse.apply(x, constant)
+
+
+class Grad(torch.autograd.Function):
+    """
+    Extension of grad reverse layer
+    """
+    @staticmethod
+    def forward(ctx, x, constant):
+        ctx.constant = constant
+        return x.view_as(x)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_output = grad_output * ctx.constant
+        return grad_output, None
+
+    def grad(x, constant):
+        return Grad.apply(x, constant)
+
+
+class city_adversarial_classify(nn.Module):
+    def __init__(self, num_class, encode_dim):
+        super(city_adversarial_classify, self).__init__()
+
+        self.num_class = num_class
+        self.encode_dim = encode_dim
+
+        self.fc1 = nn.Linear(self.encode_dim, 16)
+        self.fc2 = nn.Linear(16, num_class)
+
+    def forward(self, input, constant, Reverse):
+        if Reverse:
+            input = GradReverse.grad_reverse(input, constant)
+        else:
+            input = Grad.grad(input, constant)
+        logits = torch.tanh(self.fc1(input))
+        logits = self.fc2(logits)
+        logits = F.log_softmax(logits, 1)
+
+        return logits
+
+
 # 边类型分类器
 class EdgeTypeDiscriminator(nn.Module):
     def __init__(self, num_graphs, emb_dim):
