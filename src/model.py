@@ -498,23 +498,29 @@ class STNet_nobn(nn.Module):
         if spatial_mask is None:
             spatial_mask = self.spatial_mask
         # split according to lag
+        # x shape torch.Size([4, 6, 20, 23])
         num_lag = (X.shape[1] // self.num_channels)
         batch_size = X.shape[0]
         outs = []
         for i in range(num_lag):
+            #input shape torch.Size([4, 1, 20, 23])
             input = X[:, i*self.num_channels:(i+1)*self.num_channels, :, :]
+            #z input torch.Size([4, 64, 20, 23])
             z = self.conv1(input)
             for layer in self.layers:
                 z = layer(z)
                 # z = F.relu(z)
                 # z = bn(z)
+            #z torch.Size([4, 460, 64])
             z = z.permute(0, 2, 3, 1).reshape(batch_size, -1, 64).contiguous()# [:, spatial_mask.view(-1), :].contiguous()
             outs.append(z.view(-1, 64))
         # outs: # lag * (B, 64, lng, lat)
         # lstm requires (seq_len, batch_size, 64)
+        # torch.Size([6, 1840, 64])
         z = torch.stack(outs, dim = 0)
         # print('z', z.shape)
         temporal_out, (temporal_hid, _) = self.lstm(z)
+        #（1，1840， 128）
         temporal_out = temporal_out[-1:, :] 
         temporal = torch.cat([temporal_out.view(batch_size, -1, 128), temporal_hid.view(batch_size, -1, 128)], dim = -1)
         # print("temporal", temporal.shape)
