@@ -528,6 +528,7 @@ class STNet_nobn(nn.Module):
         temporal_valid = temporal[:, spatial_mask.view(-1), :]
         # print("temporal", temporal.shape)
         hid = F.relu(self.linear1(temporal_valid))
+        # （4, 1, 458）
         output = self.linear2(hid).permute(0, 2, 1)
         # Batch, 1, # validpoints
         if self.sigmoid_out:
