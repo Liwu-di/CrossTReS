@@ -25,7 +25,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
 from funcs import *
-from params_ipynb import *
+from params import *
 from utils import *
 from PaperCrawlerUtil.research_util import *
 
