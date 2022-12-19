@@ -753,10 +753,10 @@ target_data_8_region_list = get_eight_by_id(ids, target_data.shape[1], target_da
 
 for i in range(num_epochs):
     for m in range(target_data.shape[1] * target_data.shape[2]):
-        if (m % 2) == 0:
-            log("第{}个epoch，第{}个区域".format(str(i), str(m)))
         if not th_mask_target.view(-1).bool()[m]:
             continue
+        if (m % 20) == 0:
+            log("第{}个epoch，第{}个区域".format(str(i), str(m)))
         scity1_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s, target_emb=fused_emb_t[m])
         s1_ids = scity1_targrt_weigths[th_mask_source.view(-1).bool()].argsort()[-5: ]
         s1_ids = [idx_1d22d(i, (source_data.shape[1], source_data.shape[2])) for i in s1_ids]
