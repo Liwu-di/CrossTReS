@@ -770,7 +770,7 @@ for i in range(num_epochs):
         tensors_dataset = TensorDataset(torch.Tensor(tensors_x), torch.Tensor(tensors_y))
         tensors_loader = DataLoader(tensors_dataset, batch_size=args.batch_size, shuffle=True)
         mask_tensors = tensors_.sum(0) > 0
-        th_mask_tensors = torch.Tensor(mask_tensors.reshape(1, tensors_.shape[1], tensors_.shape[2])).to(device)
+        th_mask_tensors = mask_tensors.reshape((1, tensors_.shape[1], tensors_.shape[2])).to(device)
         for inputs, ground_truths in tensors_loader:
             inputs = inputs.to(device)
             ground_truths = ground_truths.to(device)
