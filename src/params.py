@@ -91,6 +91,8 @@ def params():
     parser.add_argument("--is_st_weight_static", type=int, default=1, help="0不使用，1使用时序评分")
     parser.add_argument("--time_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
     parser.add_argument("--space_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
+    parser.add_argument("--node_domain_adapt", type=str, default="MMD", help="在MMD和adversarial选择")
+    parser.add_argument("--fine_tuning_lr", type=float, default=8e-4, help="微调时的学习率")
     args = parser.parse_args()
 
     if args.seed != -1:
