@@ -718,11 +718,6 @@ def get_eight(id, length, height):
     return res
 
 
-# 此参数表示在原来基础上，经过微调之后的参数
-fast_weights, bn_vars = get_weights_bn_vars(net)
-spacial_params = [(fast_weights, bn_vars) for i in range(target_data.shape[1] * target_data.shape[2])]
-
-
 def get_eight_by_id(ids, length, weight, data, return_concat=True):
     tensor_list = []
     data = torch.from_numpy(data)
@@ -790,22 +785,7 @@ for i in range(num_epochs):
         tensors_loader = DataLoader(tensors_dataset, batch_size=args.batch_size, shuffle=True)
         mask_tensors = tensors_.sum(0) > 0
         th_mask_tensors = mask_tensors.reshape((1, tensors_.shape[1], tensors_.shape[2])).to(device)
-        for inputs, ground_truths in tensors_loader:
-            inputs = inputs.to(device)
-            ground_truths = ground_truths.to(device)
-            out = net.functional_forward(inputs, th_mask_tensors, spacial_params[m][0], spacial_params[m][1])
-            if len(out.shape) == 4:  # STResNet
-                loss_t = ((out - ground_truths) ** 2).view(args.batch_size, 1, -1)[:, :,
-                         th_mask_tensors.view(-1).bool()]
-                loss_t = loss_t.mean(0).sum()
-            elif len(out.shape) == 3:  # STNet
-                ground_truths = ground_truths.view(args.batch_size, 1, -1)[:, :, th_mask_tensors.view(-1).bool()]
-                loss_t = ((out - ground_truths) ** 2)  # .view(1, 1, -1))
-                loss_t = loss_t.mean(0).sum()
-            fast_loss = loss_t
-            grads = torch.autograd.grad(fast_loss, spacial_params[m][0].values(), create_graph=True)
-            for name, grad in zip(spacial_params[m][0].keys(), grads):
-                spacial_params[m][0][name] = spacial_params[m][0][name] - args.innerlr * grad
+        train_epoch(net, tensors_loader, pred_optimizer, mask=th_mask_tensors)
 
 region_losses_epoch = []
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
