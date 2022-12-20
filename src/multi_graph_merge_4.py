@@ -750,6 +750,9 @@ target_data_8_region_loader_mask_list = []
 for i in range(len(target_data_8_region_list)):
     region_train_x, region_train_y, region_val_x, region_val_y, region_test_x, region_test_y = split_x_y(
         target_data_8_region_list[i], lag)
+    if args.data_amount != 0:
+        region_train_x = region_train_x[-args.data_amount * 24:, :, :, :]
+        region_train_y = region_train_y[-args.data_amount * 24:, :, :, :]
     region_train_dataset = TensorDataset(torch.Tensor(region_train_x), torch.Tensor(region_train_y))
     region_val_dataset = TensorDataset(torch.Tensor(region_val_x), torch.Tensor(region_val_y))
     region_test_dataset = TensorDataset(torch.Tensor(region_test_x), torch.Tensor(region_test_y))
