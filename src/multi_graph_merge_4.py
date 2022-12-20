@@ -815,7 +815,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
             continue
         rmse_val, mae_val, loss = evaluate(net, target_data_8_region_loader_mask_list[i][1],
                                            spatial_mask=target_data_8_region_loader_mask_list[i][4])
-        region_val_losses.append(np.mean(loss))
+        region_val_losses.append(rmse_val)
         region_val_rmse.append(rmse_val)
         region_val_mae.append(mae_val)
     writer.add_scalar("target train val loss", np.mean(region_val_losses), ep - num_epochs)
@@ -827,7 +827,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
             continue
         rmse_test, mae_test, losses = evaluate(net, target_data_8_region_loader_mask_list[i][2],
                                                spatial_mask=target_data_8_region_loader_mask_list[i][4])
-        region_test_losses.append(np.mean(losses))
+        region_test_losses.append(rmse_test)
         region_test_rmse.append(rmse_test)
         region_test_mae.append(mae_test)
     writer.add_scalar("target train test loss", np.mean(region_test_losses), ep - num_epochs)
