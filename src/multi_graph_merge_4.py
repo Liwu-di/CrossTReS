@@ -762,30 +762,30 @@ for i in range(len(target_data_8_region_list)):
     target_data_8_region_loader_mask_list.append(
         (region_train_loader, region_val_loader, region_test_loader, mask_region, th_mask_region))
 
-for i in range(num_epochs):
-    for m in range(target_data.shape[1] * target_data.shape[2]):
-        if not th_mask_target.view(-1).bool()[m]:
-            continue
-        if (m % 20) == 0:
-            log("第{}个epoch，第{}个区域".format(str(i), str(m)))
-        scity1_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s, target_emb=fused_emb_t[m])
-        s1_ids = scity1_targrt_weigths[th_mask_source.view(-1).bool()].argsort()[-5:]
-        s1_ids = [idx_1d22d(i, (source_data.shape[1], source_data.shape[2])) for i in s1_ids]
-        scity2_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s2, target_emb=fused_emb_t[m])
-        s2_ids = scity2_targrt_weigths[th_mask_source2.view(-1).bool()].argsort()[-5:]
-        s2_ids = [idx_1d22d(i, (source_data2.shape[1], source_data2.shape[2])) for i in s2_ids]
-        tensors1 = get_eight_by_id(s1_ids, source_data.shape[1], source_data.shape[2], source_data)
-        tensors2 = get_eight_by_id(s2_ids, source_data2.shape[1], source_data2.shape[2], source_data2)
-        tensors_ = torch.concat((tensors1, tensors2), dim=1)
-        tensors_train_x, tensors_train_y, tensors_val_x, tensors_val_y, tensors_test_x, tensors_test_y = split_x_y(
-            tensors_, lag)
-        tensors_x = np.concatenate([tensors_train_x, tensors_val_x, tensors_test_x], axis=0)
-        tensors_y = np.concatenate([tensors_train_y, tensors_val_y, tensors_test_y], axis=0)
-        tensors_dataset = TensorDataset(torch.Tensor(tensors_x), torch.Tensor(tensors_y))
-        tensors_loader = DataLoader(tensors_dataset, batch_size=args.batch_size, shuffle=True)
-        mask_tensors = tensors_.sum(0) > 0
-        th_mask_tensors = mask_tensors.reshape((1, tensors_.shape[1], tensors_.shape[2])).to(device)
-        train_epoch(net, tensors_loader, pred_optimizer, mask=th_mask_tensors)
+# for i in range(num_epochs):
+#     for m in range(target_data.shape[1] * target_data.shape[2]):
+#         if not th_mask_target.view(-1).bool()[m]:
+#             continue
+#         if (m % 20) == 0:
+#             log("第{}个epoch，第{}个区域".format(str(i), str(m)))
+#         scity1_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s, target_emb=fused_emb_t[m])
+#         s1_ids = scity1_targrt_weigths[th_mask_source.view(-1).bool()].argsort()[-5:]
+#         s1_ids = [idx_1d22d(i, (source_data.shape[1], source_data.shape[2])) for i in s1_ids]
+#         scity2_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s2, target_emb=fused_emb_t[m])
+#         s2_ids = scity2_targrt_weigths[th_mask_source2.view(-1).bool()].argsort()[-5:]
+#         s2_ids = [idx_1d22d(i, (source_data2.shape[1], source_data2.shape[2])) for i in s2_ids]
+#         tensors1 = get_eight_by_id(s1_ids, source_data.shape[1], source_data.shape[2], source_data)
+#         tensors2 = get_eight_by_id(s2_ids, source_data2.shape[1], source_data2.shape[2], source_data2)
+#         tensors_ = torch.concat((tensors1, tensors2), dim=1)
+#         tensors_train_x, tensors_train_y, tensors_val_x, tensors_val_y, tensors_test_x, tensors_test_y = split_x_y(
+#             tensors_, lag)
+#         tensors_x = np.concatenate([tensors_train_x, tensors_val_x, tensors_test_x], axis=0)
+#         tensors_y = np.concatenate([tensors_train_y, tensors_val_y, tensors_test_y], axis=0)
+#         tensors_dataset = TensorDataset(torch.Tensor(tensors_x), torch.Tensor(tensors_y))
+#         tensors_loader = DataLoader(tensors_dataset, batch_size=args.batch_size, shuffle=True)
+#         mask_tensors = tensors_.sum(0) > 0
+#         th_mask_tensors = mask_tensors.reshape((1, tensors_.shape[1], tensors_.shape[2])).to(device)
+#         train_epoch(net, tensors_loader, pred_optimizer, mask=th_mask_tensors)
 
 region_losses_epoch = []
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
