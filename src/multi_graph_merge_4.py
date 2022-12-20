@@ -801,7 +801,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     """
     region_train_losses = []
     for i in range(target_data.shape[1] * target_data.shape[2]):
-        if not th_mask_target.view(-1).bool()[m]:
+        if not th_mask_target.view(-1).bool()[i]:
             continue
         losses = train_epoch(net, target_data_8_region_loader_mask_list[i][0], pred_optimizer,
                              mask=target_data_8_region_loader_mask_list[i][4])
@@ -811,7 +811,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     region_val_rmse = []
     region_val_mae = []
     for i in range(target_data.shape[1] * target_data.shape[2]):
-        if not th_mask_target.view(-1).bool()[m]:
+        if not th_mask_target.view(-1).bool()[i]:
             continue
         rmse_val, mae_val, loss = evaluate(net, target_data_8_region_loader_mask_list[i][1],
                                            spatial_mask=target_data_8_region_loader_mask_list[i][4])
@@ -823,7 +823,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     region_test_rmse = []
     region_test_mae = []
     for i in range(target_data.shape[1] * target_data.shape[2]):
-        if not th_mask_target.view(-1).bool()[m]:
+        if not th_mask_target.view(-1).bool()[i]:
             continue
         rmse_test, mae_test, losses = evaluate(net, target_data_8_region_loader_mask_list[i][2],
                                                spatial_mask=target_data_8_region_loader_mask_list[i][4])
