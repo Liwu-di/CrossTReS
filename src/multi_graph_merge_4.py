@@ -29,7 +29,6 @@ from params import *
 from utils import *
 from PaperCrawlerUtil.research_util import *
 
-
 basic_config(logs_style=LOG_STYLE_ALL)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
 long_term_save = {}
@@ -52,7 +51,7 @@ source_test_dataset2, source_poi_cos2, source_od_adj2, target_s_adj, target_test
 source_test_y2, source_y, source_dataset2, target_road_adj, source_test_loader, target_poi_adj, \
 smax, start_time, target_test_y, lng_target, source_test_loader2, \
 source_prox_adj2, target_data, source_x2, target_train_dataset, source_test_dataset, source_test_x2, source_od_adj, target_val_loader, smin, target_poi_cos, target_edge_labels, \
-source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2 ,source_emb_label, \
+source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2, source_emb_label, \
 target_norm_poi, source_norm_poi, source_train_x, datatype, source_val_y, mask_target, \
 source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
 source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
@@ -416,6 +415,8 @@ cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 log("[%.2fs]Pretraining embedding, source cvscore %.4f, source2 cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_s2, cvscore_t))
 log()
+
+
 def net_fix(source, y, weight, mask, fast_weights, bn_vars):
     pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
     if len(pred_source.shape) == 4:  # STResNet
@@ -550,7 +551,6 @@ test_mae = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
-
 if args.is_st_weight_static == 1:
     s1_time_t = np.load(
         "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity, tcity, datatype, dataname, args.data_amount))
@@ -565,7 +565,6 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                        format("多城市{} and {}-{}".format(args.scity, args.scity2, args.tcity), args.batch_size,
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
-
 
 for ep in range(num_epochs):
     net.train()
@@ -643,8 +642,10 @@ for ep in range(num_epochs):
     if args.is_st_weight_static == 1:
         time_score = args.time_score_weight
         space_score = args.space_score_weight
-        source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(s1_time_t[mask_source]).to(device)
-        source_weights_ma2 = space_score * source_weights_ma2 + time_score * torch.from_numpy(s2_time_t[mask_source2]).to(device)
+        source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(s1_time_t[mask_source]).to(
+            device)
+        source_weights_ma2 = space_score * source_weights_ma2 + time_score * torch.from_numpy(
+            s2_time_t[mask_source2]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
     # train network on source
@@ -679,7 +680,7 @@ for ep in range(num_epochs):
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (
-        ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
+            ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log()
@@ -716,10 +717,10 @@ def get_eight(id, length, height):
                 res.append((-1, -1))
     return res
 
+
 # 此参数表示在原来基础上，经过微调之后的参数
 fast_weights, bn_vars = get_weights_bn_vars(net)
 spacial_params = [(fast_weights, bn_vars) for i in range(target_data.shape[1] * target_data.shape[2])]
-
 
 
 def get_eight_by_id(ids, length, weight, data, return_concat=True):
@@ -730,7 +731,7 @@ def get_eight_by_id(ids, length, weight, data, return_concat=True):
         tem = torch.ones((source_data.shape[0], 3, 3))
         count = 0
         for p in [0, 1, 2]:
-            for q in [0, 1 ,2]:
+            for q in [0, 1, 2]:
                 if eight[count][0] == -1 and eight[count][1] == -1:
                     tem[:, p, q] = torch.zeros((data.shape[0]))
                 else:
@@ -748,8 +749,23 @@ def get_eight_by_id(ids, length, weight, data, return_concat=True):
 """
 ids = list(range(target_data.shape[1] * target_data.shape[2]))
 ids = [idx_1d22d(i, (target_data.shape[1], target_data.shape[2])) for i in ids]
-target_data_8_region_list = get_eight_by_id(ids, target_data.shape[1], target_data.shape[2], target_data, return_concat=False)
-
+target_data_8_region_list = get_eight_by_id(ids, target_data.shape[1], target_data.shape[2], target_data,
+                                            return_concat=False)
+target_data_8_region_loader_mask_list = []
+for i in range(len(target_data_8_region_list)):
+    region_train_x, region_train_y, region_val_x, region_val_y, region_test_x, region_test_y = split_x_y(
+        target_data_8_region_list[i], lag)
+    region_train_dataset = TensorDataset(torch.Tensor(region_train_x), torch.Tensor(region_train_y))
+    region_val_dataset = TensorDataset(torch.Tensor(region_val_x), torch.Tensor(region_val_y))
+    region_test_dataset = TensorDataset(torch.Tensor(region_test_x), torch.Tensor(region_test_y))
+    region_train_loader = DataLoader(region_train_dataset, batch_size=args.batch_size, shuffle=True)
+    region_val_loader = DataLoader(region_val_dataset, batch_size=args.batch_size)
+    region_test_loader = DataLoader(region_test_dataset, batch_size=args.batch_size)
+    mask_region = target_data_8_region_list[i].sum(0) > 0
+    th_mask_region = torch.Tensor(
+        mask_region.reshape(1, target_data_8_region_list[i].shape[1], target_data_8_region_list[i].shape[2])).to(device)
+    target_data_8_region_loader_mask_list.append(
+        (region_train_loader, region_val_loader, region_test_loader, mask_region, th_mask_region))
 
 for i in range(num_epochs):
     for m in range(target_data.shape[1] * target_data.shape[2]):
@@ -758,15 +774,16 @@ for i in range(num_epochs):
         if (m % 20) == 0:
             log("第{}个epoch，第{}个区域".format(str(i), str(m)))
         scity1_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s, target_emb=fused_emb_t[m])
-        s1_ids = scity1_targrt_weigths[th_mask_source.view(-1).bool()].argsort()[-5: ]
+        s1_ids = scity1_targrt_weigths[th_mask_source.view(-1).bool()].argsort()[-5:]
         s1_ids = [idx_1d22d(i, (source_data.shape[1], source_data.shape[2])) for i in s1_ids]
         scity2_targrt_weigths = scoring.single_forward(source_emb=fused_emb_s2, target_emb=fused_emb_t[m])
-        s2_ids = scity2_targrt_weigths[th_mask_source2.view(-1).bool()].argsort()[-5: ]
+        s2_ids = scity2_targrt_weigths[th_mask_source2.view(-1).bool()].argsort()[-5:]
         s2_ids = [idx_1d22d(i, (source_data2.shape[1], source_data2.shape[2])) for i in s2_ids]
         tensors1 = get_eight_by_id(s1_ids, source_data.shape[1], source_data.shape[2], source_data)
         tensors2 = get_eight_by_id(s2_ids, source_data2.shape[1], source_data2.shape[2], source_data2)
         tensors_ = torch.concat((tensors1, tensors2), dim=1)
-        tensors_train_x, tensors_train_y, tensors_val_x, tensors_val_y, tensors_test_x, tensors_test_y = split_x_y(tensors_,lag)
+        tensors_train_x, tensors_train_y, tensors_val_x, tensors_val_y, tensors_test_x, tensors_test_y = split_x_y(
+            tensors_, lag)
         tensors_x = np.concatenate([tensors_train_x, tensors_val_x, tensors_test_x], axis=0)
         tensors_y = np.concatenate([tensors_train_y, tensors_val_y, tensors_test_y], axis=0)
         tensors_dataset = TensorDataset(torch.Tensor(tensors_x), torch.Tensor(tensors_y))
@@ -778,7 +795,8 @@ for i in range(num_epochs):
             ground_truths = ground_truths.to(device)
             out = net.functional_forward(inputs, th_mask_tensors, spacial_params[m][0], spacial_params[m][1])
             if len(out.shape) == 4:  # STResNet
-                loss_t = ((out - ground_truths) ** 2).view(args.batch_size, 1, -1)[:, :, th_mask_tensors.view(-1).bool()]
+                loss_t = ((out - ground_truths) ** 2).view(args.batch_size, 1, -1)[:, :,
+                         th_mask_tensors.view(-1).bool()]
                 loss_t = loss_t.mean(0).sum()
             elif len(out.shape) == 3:  # STNet
                 ground_truths = ground_truths.view(args.batch_size, 1, -1)[:, :, th_mask_tensors.view(-1).bool()]
@@ -801,92 +819,59 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     3. 进行微调，使用该区域数据以及其8-邻域的数据组成，进行训练
     4. 测试
     """
-    region_losses = []
+    region_train_losses = []
     for i in range(target_data.shape[1] * target_data.shape[2]):
         if not th_mask_target.view(-1).bool()[m]:
             continue
-        net.train()
-        region_train_x, region_train_y, region_val_x, region_val_y, region_test_x, region_test_y = split_x_y(target_data_8_region_list[i], lag)
-        region_train_dataset = TensorDataset(torch.Tensor(region_train_x), torch.Tensor(region_train_y))
-        region_val_dataset = TensorDataset(torch.Tensor(region_val_x), torch.Tensor(region_val_y))
-        region_test_dataset = TensorDataset(torch.Tensor(region_test_x), torch.Tensor(region_test_y))
-        region_train_loader = DataLoader(region_train_dataset, batch_size=args.batch_size, shuffle=True)
-        region_val_loader = DataLoader(region_val_dataset, batch_size=args.batch_size)
-        region_test_loader = DataLoader(region_test_dataset, batch_size=args.batch_size)
-        mask_region = target_data_8_region_list[i].sum(0) > 0
-        th_mask_region = torch.Tensor(mask_region.reshape(1, target_data_8_region_list[i].shape[1], target_data_8_region_list[i].shape[2])).to(device)
-        region_loss_fining_tuning_train = [[], []]
-        region_loss_fining_tuning_val = [[], []]
-        region_loss_fining_tuning_test_rmse_mae = [[], []]
-        for inputs, ground_truths in region_train_loader:
-            inputs = inputs.to(device)
-            ground_truths = ground_truths.to(device)
-            out = net.functional_forward(inputs, th_mask_region, spacial_params[i][0], spacial_params[i][1], bn_training=True)
-            if len(out.shape) == 4:  # STResNet
-                loss_region = ((out - ground_truths) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
-                              th_mask_region.view(-1).bool()]
-                loss_region_mae = ((out - ground_truths).abs())
-            elif len(out.shape) == 3:  # STNet
-                loss_region = ((out - ground_truths) ** 2)
-                loss_region_mae = ((out - ground_truths).abs())
-
-            region_loss_fining_tuning_train[0].append(loss_region[1][1].item())
-            region_loss_fining_tuning_train[1].append(loss_region_mae[1][1].item())
-            grads = torch.autograd.grad(loss_region, spacial_params[i][0].values(), create_graph=True)
-            for name, grad in zip(spacial_params[i][0].keys(), grads):
-                spacial_params[i][0][name] = spacial_params[i][0][name] - args.fine_tuning_lr * grad
-        net.eval()
-        for inputs, ground_truths in region_val_loader:
-            inputs = inputs.to(device)
-            ground_truths = ground_truths.to(device)
-            out = net.functional_forward(inputs, th_mask_region, spacial_params[i][0], spacial_params[i][1], bn_training=False)
-            if len(out.shape) == 4:  # STResNet
-                loss_region_rmse = ((out - ground_truths) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
-                              th_mask_region.view(-1).bool()]
-                loss_region_mae = ((out - ground_truths).abs()).view(args.meta_batch_size, 1, -1)[:, :,
-                              th_mask_region.view(-1).bool()]
-            elif len(out.shape) == 3:  # STNet
-                loss_region_rmse = ((out - ground_truths) ** 2)
-                loss_region_mae = ((out - ground_truths).abs())
-            region_loss_fining_tuning_val[0].append(loss_region_rmse[1][1].item())
-            region_loss_fining_tuning_val[1].append(loss_region_mae[1][1].item())
-        for inputs, ground_truths in region_test_loader:
-            inputs = inputs.to(device)
-            ground_truths = ground_truths.to(device)
-            out = net.functional_forward(inputs, th_mask_region, spacial_params[i][0], spacial_params[i][1], bn_training=False)
-            if len(out.shape) == 4:  # STResNet
-                loss_region = ((out - ground_truths) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
-                              th_mask_region.view(-1).bool()]
-                loss_region_mae = ((out - ground_truths).abs()).view(args.meta_batch_size, 1, -1)[:, :,
-                              th_mask_region.view(-1).bool()]
-            elif len(out.shape) == 3:  # STNet
-                loss_region = ((out - ground_truths) ** 2)
-                loss_region_mae = ((out - ground_truths).abs())
-            region_loss_fining_tuning_test_rmse_mae[0].append(loss_region[1][1].item())
-            region_loss_fining_tuning_test_rmse_mae[1].append(loss_region_mae[1][1].item())
-        region_losses.append((np.mean(region_loss_fining_tuning_train[0]), np.mean(region_loss_fining_tuning_train[1]),np.mean(region_loss_fining_tuning_val[0]), np.mean(region_loss_fining_tuning_val[1]), np.mean(region_loss_fining_tuning_test_rmse_mae[0]), np.mean(region_loss_fining_tuning_test_rmse_mae[1])))
-        writer.add_scalar("test mae", test_mae * (max_val - min_val), ep - num_epochs)
-    sums = [0, 0, 0, 0, 0, 0]
-    for i in range(len(region_losses)):
-        for j in range(len(region_losses[i])):
-            sums[i] = sums[i] + region_losses[i][j]
-    sums = sums / len(region_losses)
-    train_rmse = sums[0]
-    train_mae = sums[1]
-    val_rmse = sums[0]
-    val_mae = sums[1]
-    test_rmse = sums[0]
-    test_mae = sums[1]
+        losses = train_epoch(net, target_data_8_region_loader_mask_list[i][0], pred_optimizer,
+                             mask=target_data_8_region_loader_mask_list[i][4])
+        region_train_losses.append(np.mean(losses))
+    writer.add_scalar("target pred loss", np.mean(region_train_losses), ep - num_epochs)
+    region_val_losses = []
+    region_val_rmse = []
+    region_val_mae = []
+    for i in range(target_data.shape[1] * target_data.shape[2]):
+        if not th_mask_target.view(-1).bool()[m]:
+            continue
+        rmse_val, mae_val, loss = evaluate(net, target_data_8_region_loader_mask_list[i][1],
+                                           spatial_mask=target_data_8_region_loader_mask_list[i][4])
+        region_val_losses.append(np.mean(loss))
+        region_val_rmse.append(rmse_val)
+        region_val_mae.append(mae_val)
+    writer.add_scalar("target train val loss", np.mean(region_val_losses), ep - num_epochs)
+    region_test_losses = []
+    region_test_rmse = []
+    region_test_mae = []
+    for i in range(target_data.shape[1] * target_data.shape[2]):
+        if not th_mask_target.view(-1).bool()[m]:
+            continue
+        rmse_test, mae_test, losses = evaluate(net, target_data_8_region_loader_mask_list[i][2],
+                                               spatial_mask=target_data_8_region_loader_mask_list[i][4])
+        region_test_losses.append(np.mean(losses))
+        region_test_rmse.append(rmse_test)
+        region_test_mae.append(mae_test)
+    writer.add_scalar("target train test loss", np.mean(region_test_losses), ep - num_epochs)
+    val_rmse = np.mean(region_val_rmse)
+    val_mae = np.mean(region_val_mae)
+    rmse_test = np.mean(region_test_rmse)
+    mae_test = np.mean(region_test_mae)
     log("validation rmse %.4f, mae %.4f" % (val_rmse * (max_val - min_val), val_mae * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f" % (test_rmse * (max_val - min_val), test_mae * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
     writer.add_scalar("validation rmse", val_rmse * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("validation mae", val_mae * (max_val - min_val), ep - num_epochs)
-    writer.add_scalar("test rmse", test_rmse * (max_val - min_val), ep - num_epochs)
+    writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
     if val_rmse < best_val_rmse:
         best_val_rmse = val_rmse
-        best_test_rmse = test_rmse
-        best_test_mae = test_mae
+        best_test_rmse = rmse_test
+        best_test_mae = mae_test
         log("Update best test...")
+    target_pred_loss.append(region_train_losses)
+    target_train_val_loss.append(region_val_losses)
+    target_train_test_loss.append(region_test_losses)
+    validation_rmse.append(region_val_rmse)
+    validation_mae.append(region_val_mae)
+    test_rmse.append(region_test_rmse)
+    test_mae.append(region_test_mae)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 long_term_save["region_losses_epoch"] = region_losses_epoch
 long_term_save["source_weights_ma_list"] = source_weights_ma_list
@@ -934,4 +919,3 @@ save_obj(long_term_save,
 record.update(record_id, get_timestamp(),
               "%.4f,%.4f" %
               (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-
