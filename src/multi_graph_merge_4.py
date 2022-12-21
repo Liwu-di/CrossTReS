@@ -809,7 +809,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         losses = train_epoch(net, target_data_8_region_loader_mask_list[i][0], pred_optimizer,
                              mask=target_data_8_region_loader_mask_list[i][4])
         region_train_losses.append(np.mean(losses))
-    writer.add_scalar("target pred loss", np.mean(region_train_losses), ep - num_epochs)
+    writer.add_scalar("target pred loss", np.sum(region_train_losses), ep - num_epochs)
     region_val_losses = []
     region_val_rmse = []
     region_val_mae = []
@@ -821,7 +821,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         region_val_losses.append(rmse_val)
         region_val_rmse.append(rmse_val)
         region_val_mae.append(mae_val)
-    writer.add_scalar("target train val loss", np.mean(region_val_losses), ep - num_epochs)
+    writer.add_scalar("target train val loss", np.sum(region_val_losses), ep - num_epochs)
     region_test_losses = []
     region_test_rmse = []
     region_test_mae = []
@@ -833,11 +833,12 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         region_test_losses.append(rmse_test)
         region_test_rmse.append(rmse_test)
         region_test_mae.append(mae_test)
-    writer.add_scalar("target train test loss", np.mean(region_test_losses), ep - num_epochs)
+    writer.add_scalar("target train test loss", np.sum(region_test_losses), ep - num_epochs)
     val_rmse = np.mean(region_val_rmse)
     val_mae = np.mean(region_val_mae)
     rmse_test = np.mean(region_test_rmse)
     mae_test = np.mean(region_test_mae)
+    region_losses_epoch.append((region_train_losses, region_val_losses, region_test_losses))
     log("validation rmse %.4f, mae %.4f" % (val_rmse * (max_val - min_val), val_mae * (max_val - min_val)))
     log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
     writer.add_scalar("validation rmse", val_rmse * (max_val - min_val), ep - num_epochs)
