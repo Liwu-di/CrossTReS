@@ -398,14 +398,10 @@ def load_process_data(args, p_bar):
         target_train_x = target_train_x[-args.data_amount * 24:, :, :, :]
         target_train_y = target_train_y[-args.data_amount * 24:, :, :, :]
     if args.alin_month == 1:
-        source_train_x = source_train_x[-30*3*24, :, :, :]
-        source_train_y = source_train_y[-30*3*24, :, :, :]
-        source_train_x2 = source_train_x2[-30*3*24, :, :, :]
-        source_train_y2 = source_train_y2[-30*3*24, :, :, :]
-        source_x = source_x[-30*3*24, :, :, :]
-        source_y = source_y[-30*3*24, :, :, :]
-        source_x2 = source_x2[-30*3*24, :, :, :]
-        source_y2 = source_y2[-30*3*24, :, :, :]
+        source_x = source_x[-30*6*24, :, :, :]
+        source_y = source_y[-30*6*24, :, :, :]
+        source_x2 = source_x2[-30*6*24, :, :, :]
+        source_y2 = source_y2[-30*6*24, :, :, :]
     log("Source split to: x %s, y %s" % (str(source_x.shape), str(source_y.shape)))
     # log("val_x %s, val_y %s" % (str(source_val_x.shape), str(source_val_y.shape)))
     # log("test_x %s, test_y %s" % (str(source_test_x.shape), str(source_test_y.shape)))
