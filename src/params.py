@@ -93,6 +93,8 @@ def params():
     parser.add_argument("--space_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
     parser.add_argument("--node_domain_adapt", type=str, default="MMD", help="在MMD和adversarial选择")
     parser.add_argument("--fine_tuning_lr", type=float, default=8e-4, help="微调时的学习率")
+    parser.add_argument("--need_third", type=int, default=1, help="为1使用三个城市")
+    parser.add_argument("--alin_month", type=int, default=1, help="为1将三个城市月份统一")
     args = parser.parse_args()
 
     if args.seed != -1:
