@@ -222,25 +222,26 @@ for ep in range(num_epochs):
     net.train()
     source_loss = train_epoch(net, source_loader, pred_optimizer, mask=th_mask_source,
                               num_iters=args.pretrain_iter)
-    source_loss2 = train_epoch(net, source_loader2, pred_optimizer, mask=th_mask_source2,
-                               num_iters=args.pretrain_iter)
+    if args.need_third != 2:
+        source_loss2 = train_epoch(net, source_loader2, pred_optimizer, mask=th_mask_source2,
+                                   num_iters=args.pretrain_iter)
     if args.need_third == 1:
         source_loss3 = train_epoch(net, bj_loader, pred_optimizer, mask=th_mask_sourcebj,
                                    num_iters=args.pretrain_iter)
         avg_source_loss3 = np.mean(source_loss3)
     avg_source_loss = np.mean(source_loss)
-    avg_source_loss2 = np.mean(source_loss2)
+    # avg_source_loss2 = np.mean(source_loss2)
 
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     net.eval()
     rmse_val, mae_val, target_val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_s_val, mae_s_val, source_val_losses = evaluate(net, source_loader, spatial_mask=th_mask_source)
-    rmse_s_val2, mae_s_val2, source_val_losses2 = evaluate(net, source_loader2, spatial_mask=th_mask_source2)
+    # rmse_s_val2, mae_s_val2, source_val_losses2 = evaluate(net, source_loader2, spatial_mask=th_mask_source2)
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
-    log(
-        "Epoch %d, source validation rmse %.4f, mae %.4f" % (
-            ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
+    # log(
+    #     "Epoch %d, source validation rmse %.4f, mae %.4f" % (
+    #         ep, rmse_s_val2 * (smax2 - smin2), mae_s_val * (smax2 - smin2)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log()
