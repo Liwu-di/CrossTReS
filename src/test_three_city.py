@@ -209,7 +209,28 @@ def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=No
             break
     return epoch_loss
 
-
+weight1 = None
+weight2 = None
+weightbj = None
+if args.is_st_weight_static == 1:
+    s1_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity, tcity, datatype, dataname, args.data_amount))
+    s2_time_t = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format(scity2, tcity, datatype, dataname, args.data_amount))
+    s1_time_t, _, __ = min_max_normalize(s1_time_t.sum(axis=2))
+    log(s1_time_t.shape, _, __)
+    s2_time_t, _, __ = min_max_normalize(s2_time_t.sum(axis=2))
+    log(s2_time_t.shape, _, __)
+    weightbj = np.load(
+        "./time_weight/time_weight{}_{}_{}_{}_{}.npy".format("bj2016", tcity, datatype, dataname, args.data_amount))
+    weightbj, _, __ = min_max_normalize(weightbj.sum(axis=2))
+    log(weightbj.shape, _, __)
+    weight1 = s1_time_t
+    weight2 = s2_time_t
+else:
+    weight1 = None
+    weight2 = None
+    weightbj = None
 
 
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
@@ -221,13 +242,13 @@ target_train_test_loss = []
 for ep in range(num_epochs):
     net.train()
     source_loss = train_epoch(net, source_loader, pred_optimizer, mask=th_mask_source,
-                              num_iters=args.pretrain_iter)
+                              num_iters=args.pretrain_iter, weights=weight1)
     if args.need_third != 2:
         source_loss2 = train_epoch(net, source_loader2, pred_optimizer, mask=th_mask_source2,
-                                   num_iters=args.pretrain_iter)
+                                   num_iters=args.pretrain_iter, weights=weight2)
     if args.need_third == 1:
         source_loss3 = train_epoch(net, bj_loader, pred_optimizer, mask=th_mask_sourcebj,
-                                   num_iters=args.pretrain_iter)
+                                   num_iters=args.pretrain_iter, weights=weightbj)
         avg_source_loss3 = np.mean(source_loss3)
     avg_source_loss = np.mean(source_loss)
     # avg_source_loss2 = np.mean(source_loss2)
