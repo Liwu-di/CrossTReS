@@ -227,6 +227,9 @@ if args.is_st_weight_static == 1:
     log(weightbj.shape, _, __)
     weight1 = s1_time_t
     weight2 = s2_time_t
+    weight1 = torch.from_numpy(weight1[mask_source]).to(device)
+    weight2 = torch.from_numpy(weight2[mask_source2]).to(device)
+    weightbj = torch.from_numpy(weightbj[mask_sourcebj]).to(device)
 else:
     weight1 = None
     weight2 = None
