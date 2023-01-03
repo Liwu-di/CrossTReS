@@ -660,9 +660,10 @@ for ep in range(num_epochs):
     avg_source_loss3 = np.mean(source_loss3)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     log(
-        "[%.2fs]Epoch %d, average meta query loss %.4f, source weight mean %.4f, var %.6f, source loss {}, target_loss %.4f" % \
+        "[%.2fs]Epoch %d, average meta query loss %.4f, source weight mean %.4f, var %.6f, source loss {}, target_loss %.4f".
+        format(str((avg_source_loss, avg_source_loss2, avg_source_loss3))) % \
         (time.time() - start_time, ep, avg_q_loss, source_weights_ma.mean().item(), torch.var(source_weights_ma).item(),
-         str((avg_source_loss, avg_source_loss2, avg_source_loss3)), avg_target_loss))
+         avg_target_loss))
     writer.add_scalar("average meta query loss", avg_q_loss, ep)
     average_meta_query_loss.append(avg_q_loss)
     writer.add_scalar("source weight mean", source_weights_ma.mean().item(), ep)
