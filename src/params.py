@@ -21,6 +21,7 @@ def params():
     # 源城市
     parser.add_argument('--scity', type=str, default='NY')
     parser.add_argument('--scity2', type=str, default='CHI')
+    parser.add_argument('--scity3', type=str, default='BJ')
     # 目标城市
     parser.add_argument('--tcity', type=str, default='DC')
     # 数据集名称
