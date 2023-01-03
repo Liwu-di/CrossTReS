@@ -622,8 +622,8 @@ for ep in range(num_epochs):
         source_weights2 = scoring(fused_emb_s2, fused_emb_t, th_mask_source2, th_mask_target)
         source_weights3 = scoring(fused_emb_s3, fused_emb_t, th_mask_source3, th_mask_target)
         source_weight_list.append(list(source_weights.cpu().numpy()))
-        source_weight_list.extend(list(source_weights2.cpu().numpy()))
-        source_weight_list.extend(list(source_weights3.cpu().numpy()))
+        source_weight_list.append(list(source_weights2.cpu().numpy()))
+        source_weight_list.append(list(source_weights3.cpu().numpy()))
 
     # For debug: use fixed weightings.
     # with torch.no_grad():
@@ -645,8 +645,8 @@ for ep in range(num_epochs):
     #     source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(s1_time_t[mask_source]).to(device)
     #     source_weights_ma2 = space_score * source_weights_ma2 + time_score * torch.from_numpy(s2_time_t[mask_source2]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
-    source_weights_ma_list.extend(list(source_weights_ma2.cpu().numpy()))
-    source_weights_ma_list.extend(list(source_weights_ma3.cpu().numpy()))
+    source_weights_ma_list.append(list(source_weights_ma2.cpu().numpy()))
+    source_weights_ma_list.append(list(source_weights_ma3.cpu().numpy()))
     # train network on source
     # 有了参数lambda rs，训练net网络
     source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
