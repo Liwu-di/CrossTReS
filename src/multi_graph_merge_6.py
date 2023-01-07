@@ -438,6 +438,7 @@ if args.node_adapt == "DT":
             x = x.to(device)
             y = y.to(device)
             out = dt(x)
+            log((out.shape, x.shape, y.shape))
             for i in range(args.batch_size):
                 xx = out[i]
                 yy = y[i]
