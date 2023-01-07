@@ -85,7 +85,7 @@ def params():
                         help='0 是 1 否 ')
     # 预测网络学习率
     parser.add_argument("--pred_lr", type=float, default=8e-4, help="prediction learning rate")
-    parser.add_argument("--c", type=str, default="", help="research record")
+    parser.add_argument("--c", type=str, default="default", help="research record")
     parser.add_argument("--scoring", type=int, default=1, help="score method")
     parser.add_argument("--time_meta", type=int, default=1, help="time_meta")
     parser.add_argument("--meta_batch_size", type=int, default=16, help="time_meta")
@@ -96,6 +96,7 @@ def params():
     parser.add_argument("--fine_tuning_lr", type=float, default=8e-4, help="微调时的学习率")
     parser.add_argument("--need_third", type=int, default=1, help="为1使用三个城市")
     parser.add_argument("--alin_month", type=int, default=0, help="为1将三个城市月份统一")
+    parser.add_argument("--node_adapt", type=str, default="MMD", help="[MMD, DT]")
     args = parser.parse_args()
 
     if args.seed != -1:
