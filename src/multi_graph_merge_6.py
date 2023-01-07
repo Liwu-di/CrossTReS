@@ -448,7 +448,7 @@ if args.node_adapt == "DT":
                     count_true = count_true + 1
         test_accuracy.append(count_true / count_sum)
 
-        log((epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1]))
+        # log((epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1]))
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(epoch_loss), label="train")
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(val_loss), label="val")
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(test_loss), label="test")
