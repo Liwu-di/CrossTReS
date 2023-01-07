@@ -438,8 +438,7 @@ if args.node_adapt == "DT":
             x = x.to(device)
             y = y.to(device)
             out = dt(x)
-            log((out.shape, x.shape, y.shape))
-            for i in range(args.batch_size):
+            for i in range(out.shape[0]):
                 xx = out[i]
                 yy = y[i]
                 count_sum = count_sum + 1
