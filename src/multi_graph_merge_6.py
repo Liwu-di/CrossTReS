@@ -366,12 +366,15 @@ if args.node_adapt == "DT":
     s2 = np.array([0, 1, 0, 0])
     s3 = np.array([0, 0, 1, 0])
     st = np.array([0, 0, 0, 1])
-    x = torch.concat((fused_emb_s, fused_emb_s2, fused_emb_s3, fused_emb_t), dim=0)
+    x = torch.concat((fused_emb_s[th_mask_source.view(-1).bool()],
+                      fused_emb_s2[th_mask_source2.view(-1).bool()],
+                      fused_emb_s3[th_mask_source3.view(-1).bool()],
+                      fused_emb_t[th_mask_target.view(-1).bool()]), dim=0)
     y = []
-    y.extend([s1 for i in range(fused_emb_s.shape[0])])
-    y.extend([s2 for i in range(fused_emb_s2.shape[0])])
-    y.extend([s3 for i in range(fused_emb_s3.shape[0])])
-    y.extend([st for i in range(fused_emb_t.shape[0])])
+    y.extend([s1 for i in range(fused_emb_s[th_mask_source.view(-1).bool()].shape[0])])
+    y.extend([s2 for i in range(fused_emb_s2[th_mask_source2.view(-1).bool()].shape[0])])
+    y.extend([s3 for i in range(fused_emb_s3[th_mask_source3.view(-1).bool()].shape[0])])
+    y.extend([st for i in range(fused_emb_t[th_mask_target.view(-1).bool()].shape[0])])
     y = torch.from_numpy(np.array(y))
     x = x.cpu().numpy()
     y = y.numpy()
@@ -380,9 +383,9 @@ if args.node_adapt == "DT":
     y = y[random_ids]
     x = torch.from_numpy(x)
     y = torch.from_numpy(y)
-    dt_train = (x[0: 1500], y[0: 1500])
-    dt_val = (x[1500: 1800], y[1500: 1800])
-    dt_test = (x[1800:], y[1800:])
+    dt_train = (x[0: 1200], y[0: 1200])
+    dt_val = (x[1200: 1500], y[1200: 1500])
+    dt_test = (x[1500:], y[1500:])
     dt_train_dataset = TensorDataset(dt_train[0], dt_train[1])
     dt_val_dataset = TensorDataset(dt_val[0], dt_val[1])
     dt_test_dataset = TensorDataset(dt_test[0], dt_test[1])
@@ -448,7 +451,7 @@ if args.node_adapt == "DT":
                     count_true = count_true + 1
         test_accuracy.append(count_true / count_sum)
 
-        # log((epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1]))
+    #     log((epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1]))
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(epoch_loss), label="train")
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(val_loss), label="val")
     # plt.plot(np.array([i + 1 for i in range(dc_epoch)]), np.array(test_loss), label="test")
@@ -495,10 +498,10 @@ def train_emb_epoch2():
 
         mmd_losses = mmd_loss + mmd_loss_source2_target + mmd_loss_source2_source1 + mmd_loss_source3_source1 + mmd_loss_source3_target
     elif args.node_adapt == "DT":
-        mmd_losses = dt(fused_emb_s).sum() + \
-                     dt(fused_emb_s2).sum() + \
-                     dt(fused_emb_s3).sum() + \
-                     dt(fused_emb_t).sum()
+        mmd_losses = dt(fused_emb_s[th_mask_source.view(-1).bool()]).sum() + \
+                     dt(fused_emb_s2[th_mask_source2.view(-1).bool()]).sum() + \
+                     dt(fused_emb_s3[th_mask_source3.view(-1).bool()]).sum() + \
+                     dt(fused_emb_t[th_mask_target.view(-1).bool()]).sum()
 
     # 随机抽样边256
     source_batch_edges = np.random.randint(0, len(source_edges), size=(256,))
