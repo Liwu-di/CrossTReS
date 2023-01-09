@@ -129,11 +129,11 @@ if args.dataname == "Taxi":
 time_weight1, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight1)
 time_weight2, time_weight_max2, time_weight_min2 = min_max_normalize(time_weight2)
 
-np.save(local_path_generate("time_weight", "time_weight{}_{}_{}_{}_{}".
+np.save(local_path_generate("time_weight2", "time_weight{}_{}_{}_{}_{}".
                             format(scity, tcity, datatype, dataname, args.data_amount)), time_weight1)
-np.save(local_path_generate("time_weight", "time_weight{}_{}_{}_{}_{}".
+np.save(local_path_generate("time_weight2", "time_weight{}_{}_{}_{}_{}".
                             format(scity2, tcity, datatype, dataname, args.data_amount)), time_weight2)
 if args.dataname == "Taxi":
     time_weight3, time_weight_max3, time_weight_min3 = min_max_normalize(time_weight3)
-    np.save(local_path_generate("time_weight", "time_weight{}_{}_{}_{}_{}".
+    np.save(local_path_generate("time_weight2", "time_weight{}_{}_{}_{}_{}".
                                 format(scity3, tcity, datatype, dataname, args.data_amount)), time_weight3)
