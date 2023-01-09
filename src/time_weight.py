@@ -57,6 +57,10 @@ target_data = np.load("../data/%s/%s%s_%s.npy" % (tcity, dataname, tcity, dataty
 lng_target, lat_target = target_data.shape[1], target_data.shape[2]
 mask_target = target_data.sum(0) > 0
 th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to(device)
+source_data3, smax, smin = min_max_normalize(source_data3)
+target_data, max_val, min_val = min_max_normalize(target_data)
+if args.data_amount != 0:
+    target_data = target_data[-args.data_amount * 24:, :, :]
 log("%d valid regions in target" % np.sum(mask_target))
 
 time_weight1 = np.zeros((source_data3.shape[1], source_data3.shape[2], target_data.shape[1] * target_data.shape[2]))
