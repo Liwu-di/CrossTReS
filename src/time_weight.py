@@ -82,7 +82,7 @@ time_weight1, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight
 np.save(local_path_generate("time_weight2", "time_weight{}_{}_{}_{}_{}".
                             format(scity3, tcity, datatype, dataname, args.data_amount)), time_weight1)
 
-time_weight1 = min_max_normalize(time_weight1.sum(axis=2))
+time_weight1, _, _ = min_max_normalize(time_weight1.sum(axis=2))
 fig = sns.heatmap(time_weight1)
 heatmap = fig.get_figure()
 heatmap.savefig(local_path_generate("time_weight2", "time_weight{}_{}_{}_{}_{}.png".
