@@ -106,6 +106,17 @@ for i in range(len(source_graphs3)):
 source_edges3, source_edge_labels3 = graphs_to_edge_labels(source_graphs3)
 
 
+if args.pretrain == "meta":
+    def load_one_city(city, datanames, datatypes):
+        one_city = np.load("../data/%s/%s%s_%s.npy" % (city, datanames, city, datatypes))
+        lng_source_adv, lat_source_adv = one_city.shape[1], one_city.shape[2]
+        mask_source_adv = one_city.sum(0) > 0
+    dp = "dropoff" if args.datatype == "pickup" else "pickup"
+    source_data_adv = load_one_city(scity, dataname, dp)
+    source_data2_adv = load_one_city(scity2, dataname, dp)
+    source_data3_adv = load_one_city(scity2, dataname, dp)
+
+
 # ===========================================================================
 # 初始化网络
 # ===========================================================================

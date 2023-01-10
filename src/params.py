@@ -97,6 +97,9 @@ def params():
     parser.add_argument("--need_third", type=int, default=1, help="为1使用三个城市")
     parser.add_argument("--alin_month", type=int, default=0, help="为1将三个城市月份统一")
     parser.add_argument("--node_adapt", type=str, default="MMD", help="[MMD, DT]")
+    parser.add_argument("--pretrain", type=str, default="supervise", help="[supervise, meta]")
+    parser.add_argument("--tasks_val_rate", type=float, default=0.3)
+    parser.add_argument("--tasks_test_rate", type=float, default=0.5)
     args = parser.parse_args()
 
     if args.seed != -1:
