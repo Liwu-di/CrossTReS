@@ -309,30 +309,6 @@ def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
     return loss, fused_emb, embs
 
 
-# ============================================================================================
-# 预训练特征提取网络mvgat， 方便训练域识别网络
-# ============================================================================================
-loss_mvgats = []
-# 实验确定
-pre = 25
-for i in range(pre):
-    loss_source, fused_emb_s, embs_s = forward_emb(source_graphs, source_norm_poi, source_od_adj, source_poi_cos)
-    loss_source2, fused_emb_s2, embs_s2 = forward_emb(source_graphs2, source_norm_poi2, source_od_adj2, source_poi_cos2)
-    loss_source3, fused_emb_s3, embs_s3 = forward_emb(source_graphs3, source_norm_poi3, source_od_adj3, source_poi_cos3)
-    loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj, target_poi_cos)
-
-    loss_mvgat = loss_source + loss_target + loss_source2 + loss_source3
-    meta_optimizer.zero_grad()
-    loss_mvgat.backward()
-    emb_optimizer.step()
-    loss_mvgats.append(loss_mvgat.item())
-#     log("loss_mvgat:{}".format(str(loss_mvgat)))
-# loss_mvgats = np.array(loss_mvgats)
-# x = np.array([i + 1 for i in range(pre)])
-# plt.plot(x, loss_mvgats)
-# plt.grid()
-# plt.legend()
-# plt.show()
 
 
 with torch.no_grad():
@@ -362,6 +338,33 @@ class DomainClassify(nn.Module):
 
 
 if args.node_adapt == "DT":
+    # ============================================================================================
+    # 预训练特征提取网络mvgat， 方便训练域识别网络
+    # ============================================================================================
+    loss_mvgats = []
+    # 实验确定
+    pre = 25
+    for i in range(pre):
+        loss_source, fused_emb_s, embs_s = forward_emb(source_graphs, source_norm_poi, source_od_adj, source_poi_cos)
+        loss_source2, fused_emb_s2, embs_s2 = forward_emb(source_graphs2, source_norm_poi2, source_od_adj2,
+                                                          source_poi_cos2)
+        loss_source3, fused_emb_s3, embs_s3 = forward_emb(source_graphs3, source_norm_poi3, source_od_adj3,
+                                                          source_poi_cos3)
+        loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj, target_poi_cos)
+
+        loss_mvgat = loss_source + loss_target + loss_source2 + loss_source3
+        meta_optimizer.zero_grad()
+        loss_mvgat.backward()
+        emb_optimizer.step()
+        loss_mvgats.append(loss_mvgat.item())
+    #     log("loss_mvgat:{}".format(str(loss_mvgat)))
+    # loss_mvgats = np.array(loss_mvgats)
+    # x = np.array([i + 1 for i in range(pre)])
+    # plt.plot(x, loss_mvgats)
+    # plt.grid()
+    # plt.legend()
+    # plt.show()
+
     s1 = np.array([1, 0, 0, 0])
     s2 = np.array([0, 1, 0, 0])
     s3 = np.array([0, 0, 1, 0])
