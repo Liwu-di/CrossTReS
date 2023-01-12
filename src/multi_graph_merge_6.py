@@ -376,6 +376,17 @@ if args.node_adapt == "DT":
     # plt.legend()
     # plt.show()
 
+    with torch.no_grad():
+        views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
+        # 融合模块指的是把多图的特征融合
+        fused_emb_s, _ = fusion(views)
+        views = mvgat(source_graphs2, torch.Tensor(source_norm_poi2).to(device))
+        fused_emb_s2, _ = fusion(views)
+        views = mvgat(source_graphs3, torch.Tensor(source_norm_poi3).to(device))
+        fused_emb_s3, _ = fusion(views)
+        views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
+        fused_emb_t, _ = fusion(views)
+
     s1 = np.array([1, 0, 0, 0])
     s2 = np.array([0, 1, 0, 0])
     s3 = np.array([0, 0, 1, 0])
