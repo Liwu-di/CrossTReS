@@ -61,6 +61,7 @@ mask_target = target_data.sum(0) > 0
 th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to(device)
 source_data3, smax, smin = min_max_normalize(source_data3)
 target_data, max_val, min_val = min_max_normalize(target_data)
+target_data = target_data[0: 8 * 30 * 24]
 if args.data_amount != 0:
     target_data = target_data[-args.data_amount * 24:, :, :]
     log("data_amount={}".format(str(args.data_amount)))
@@ -70,6 +71,7 @@ time_weight1 = np.zeros((source_data3.shape[1], source_data3.shape[2], target_da
 sum = source_data3.shape[1] * source_data3.shape[2]
 
 p_bar = process_bar(final_prompt="时间权重生成完成", unit="part")
+p_bar.process(0, 1, sum)
 for i in range(source_data3.shape[1]):
     for j in range(source_data3.shape[2]):
         if mask_source3[i][j]:

@@ -18,6 +18,7 @@ from PaperCrawlerUtil.common_util import *
 from PaperCrawlerUtil.constant import *
 from PaperCrawlerUtil.crawler_util import *
 from dgl.nn import GATConv
+from dtaidistance import dtw
 from sklearn.feature_extraction.text import TfidfTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_validate
@@ -758,14 +759,33 @@ validation_rmse = []
 validation_mae = []
 test_rmse = []
 test_mae = []
-p_bar = process_bar(final_prompt="训练完成", unit="epoch")
-p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
                        format("多城市{},{} and {}-{}".format(args.scity, args.scity2, args.scity3, args.tcity), args.batch_size,
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 
 
+if args.is_st_weight_static == 1:
+    time_weight = np.zeros((virtual_city.shape[1], virtual_city.shape[2], target_data.shape[1] * target_data.shape[2]))
+    sum = virtual_city.shape[1] * virtual_city.shape[2]
+
+    p_bar = process_bar(final_prompt="时间权重生成完成", unit="part")
+    for i in range(virtual_city.shape[1]):
+        for j in range(virtual_city.shape[2]):
+            if mask_virtual[i][j]:
+                for p in range(target_data.shape[1]):
+                    for q in range(target_data.shape[2]):
+                        time_weight[i][j][
+                            idx_2d_2_1d((p, q), (target_data.shape[1], target_data.shape[2]))] = dtw.distance_fast(
+                            virtual_city[:, i, j], target_data[(8 * 30 - args.data_amount) * 24 : 8 * 30 * 24, p, q])
+            p_bar.process(0, 1, sum)
+
+    time_weight, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight)
+    time_weight, _, _ = min_max_normalize(time_weight.sum(axis=2))
+
+p_bar = process_bar(final_prompt="训练完成", unit="epoch")
+p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -816,6 +836,10 @@ for ep in range(num_epochs):
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+    if args.is_st_weight_static == 1:
+        time_score = args.time_score_weight
+        space_score = args.space_score_weight
+        source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(time_weight[mask_virtual]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     weight = None if args.need_weight == 0 else source_weights_ma
     virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=weight, num_iters=args.pretrain_iter, mask=th_mask_virtual)
