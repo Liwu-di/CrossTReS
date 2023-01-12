@@ -168,7 +168,7 @@ virtual_emb_label = masked_percentile_label(virtual_city.sum(0).reshape(-1), mas
 lag = [-6, -5, -4, -3, -2, -1]
 virtual_city, virtual_max, virtual_min = min_max_normalize(virtual_city)
 virtual_train_x, virtual_train_y, virtual_val_x, virtual_val_y, virtual_test_x, virtual_test_y \
-    = split_x_y(source_data3, lag)
+    = split_x_y(virtual_city, lag)
 # we concatenate all source data
 virtual_x = np.concatenate([virtual_train_x, virtual_val_x, virtual_test_x], axis=0)
 virtual_y = np.concatenate([virtual_train_y, virtual_val_y, virtual_test_y], axis=0)
