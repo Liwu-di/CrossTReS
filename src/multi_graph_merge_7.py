@@ -119,7 +119,7 @@ s2_time_weight, _, _ = min_max_normalize(s2_time_weight)
 if args.need_third == 1:
     s3_time_weight = np.load(path.format(scity3, tcity, datatype, dataname, args.data_amount)).sum(2)
     s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
-target_regions = target_data.shape[1] * target_data.shape[2]
+virtual_regions = source_data.shape[1] * source_data.shape[2]
 threshold = 0.0
 time_threshold = 3312
 for i in range(10, 95, 5):
@@ -130,13 +130,13 @@ for i in range(10, 95, 5):
         l = (s1_time_weight > (i / 100)).sum() + (s2_time_weight > (i / 100)).sum()
         r = (s1_time_weight > ((i / 100) + 0.05)).sum() + (s2_time_weight > ((i / 100) + 0.05)).sum()
 
-    if l > target_regions > r:
+    if l > virtual_regions > r:
         threshold = (i / 100) + 0.05
         break
     threshold = 0.25
 count = 0
-virtual_city = np.zeros((time_threshold, target_data.shape[1], target_data.shape[2]))
-virtual_poi = np.zeros((target_data.shape[1] * target_data.shape[2], 14))
+virtual_city = np.zeros((time_threshold, source_data.shape[1], source_data.shape[2]))
+virtual_poi = np.zeros((source_data.shape[1] * source_data.shape[2], 14))
 for i in range(source_data.shape[1]):
     for j in range(source_data.shape[2]):
         if s1_time_weight[i][j] > threshold:
@@ -182,8 +182,8 @@ virtual_norm_poi = np.array(virtual_transform.fit_transform(virtual_poi).todense
 virtual_poi_adj, virtual_poi_cos = build_poi_graph(virtual_norm_poi, args.topk)
 virtual_poi_adj = add_self_loop(virtual_poi_adj)
 virtual_prox_adj = add_self_loop(build_prox_graph(lng_virtual, lat_virtual))
-virtual_road_adj = target_road_adj
-virtual_s_adj, virtual_d_adj, virtual_od_adj = target_s_adj, target_d_adj, target_od_adj
+virtual_road_adj = source_road_adj
+virtual_s_adj, virtual_d_adj, virtual_od_adj = source_s_adj, source_d_adj, source_od_adj
 virtual_s_adj = add_self_loop(virtual_s_adj)
 virtual_d_adj = add_self_loop(virtual_d_adj)
 virtual_od_adj = add_self_loop(virtual_od_adj)
