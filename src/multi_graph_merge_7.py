@@ -593,7 +593,7 @@ def train_emb_epoch2():
     # 源城市目的城市使用同样的边分类器
     pred_source = edge_disc.forward(source_emb_src, source_emb_dst)
     pred_target = edge_disc.forward(target_emb_src, target_emb_dst)
-    source_batch_labels = torch.Tensor(source_edge_labels[source_batch_edges]).to(device)
+    source_batch_labels = torch.Tensor(virtual_edge_labels[source_batch_edges]).to(device)
     target_batch_labels = torch.Tensor(target_edge_labels[target_batch_edges]).to(device)
     # -（label*log(sigmod(pred)+0.000001)) + (1-label)*log(1-sigmod+0.000001) sum mean
     loss_et_source = -((source_batch_labels * torch.log(torch.sigmoid(pred_source) + 1e-6)) + (
