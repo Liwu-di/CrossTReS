@@ -100,6 +100,7 @@ def params():
     parser.add_argument("--pretrain", type=str, default="supervise", help="[supervise, meta]")
     parser.add_argument("--tasks_val_rate", type=float, default=0.3)
     parser.add_argument("--tasks_test_rate", type=float, default=0.5)
+    parser.add_argument("--need_weight", type=int, default=0)
     args = parser.parse_args()
 
     if args.seed != -1:
