@@ -151,13 +151,14 @@ for i in range(source_data2.shape[1]):
             virtual_city[:, x, y] = source_data2[0: time_threshold, i, j]
             virtual_poi[count, :] = source_poi2[idx_2d_2_1d((i, j), (source_data2.shape[1], source_data2.shape[2])), :]
             count = count + 1
-for i in range(source_data3.shape[1]):
-    for j in range(source_data3.shape[2]):
-        if s3_time_weight[i][j] > threshold:
-            x, y = idx_1d22d(count, (virtual_city.shape[1], virtual_city.shape[2]))
-            virtual_city[:, x, y] = source_data3[0: time_threshold, i, j]
-            virtual_poi[count, :] = source_poi3[idx_2d_2_1d((i, j), (source_data3.shape[1], source_data3.shape[2])), :]
-            count = count + 1
+if args.need_third == 1:
+    for i in range(source_data3.shape[1]):
+        for j in range(source_data3.shape[2]):
+            if s3_time_weight[i][j] > threshold:
+                x, y = idx_1d22d(count, (virtual_city.shape[1], virtual_city.shape[2]))
+                virtual_city[:, x, y] = source_data3[0: time_threshold, i, j]
+                virtual_poi[count, :] = source_poi3[idx_2d_2_1d((i, j), (source_data3.shape[1], source_data3.shape[2])), :]
+                count = count + 1
 
 
 lng_virtual, lat_virtual = virtual_city.shape[1], virtual_city.shape[2]
@@ -180,10 +181,26 @@ virtual_transform = TfidfTransformer()
 virtual_norm_poi = np.array(virtual_transform.fit_transform(virtual_poi).todense())
 virtual_poi_adj, virtual_poi_cos = build_poi_graph(virtual_norm_poi, args.topk)
 virtual_poi_adj = add_self_loop(virtual_poi_adj)
+virtual_prox_adj = add_self_loop(build_prox_graph(lng_virtual, lat_virtual))
+virtual_road_adj = target_road_adj
+virtual_s_adj, virtual_d_adj, virtual_od_adj = target_s_adj, target_d_adj, target_od_adj
+virtual_s_adj = add_self_loop(virtual_s_adj)
+virtual_d_adj = add_self_loop(virtual_d_adj)
+virtual_od_adj = add_self_loop(virtual_od_adj)
+log()
 
 log("virtual graphs: ")
 log("virtual_poi_adj, %d nodes, %d edges" % (virtual_poi_adj.shape[0], np.sum(virtual_poi_adj > 0)))
+log("prox_adj3: %d nodes, %d edges" % (virtual_prox_adj.shape[0], np.sum(virtual_prox_adj)))
+log("road adj3: %d nodes, %d edges" % (virtual_road_adj.shape[0], np.sum(virtual_road_adj > 0)))
+log("s_adj3, %d nodes, %d edges" % (virtual_s_adj.shape[0], np.sum(virtual_s_adj > 0)))
+log("d_adj3, %d nodes, %d edges" % (virtual_d_adj.shape[0], np.sum(virtual_d_adj > 0)))
 log()
+
+virtual_graphs = adjs_to_graphs([virtual_prox_adj, virtual_road_adj, virtual_poi_adj, virtual_s_adj, virtual_d_adj])
+for i in range(len(virtual_graphs)):
+    virtual_graphs[i] = virtual_graphs[i].to(device)
+virtual_edges, virtual_edge_labels = graphs_to_edge_labels(virtual_graphs)
 
 
 class Scoring(nn.Module):
@@ -227,7 +244,7 @@ ma_param = args.ma_coef
 
 mvgat = MVGAT(len(source_graphs), num_gat_layers, in_dim, hidden_dim, emb_dim, num_heads, True).to(device)
 fusion = FusionModule(len(source_graphs), emb_dim, 0.8).to(device)
-scoring = Scoring(emb_dim, th_mask_source, th_mask_target).to(device)
+scoring = Scoring(emb_dim, th_mask_virtual, th_mask_target).to(device)
 edge_disc = EdgeTypeDiscriminator(len(source_graphs), emb_dim).to(device)
 mmd = MMD_loss()
 # we still need a scoring model.
@@ -389,14 +406,9 @@ def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
 
 
 with torch.no_grad():
-    views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
+    views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
     # 融合模块指的是把多图的特征融合
     fused_emb_s, _ = fusion(views)
-    views = mvgat(source_graphs2, torch.Tensor(source_norm_poi2).to(device))
-    fused_emb_s2, _ = fusion(views)
-    if args.need_third == 1:
-        views = mvgat(source_graphs3, torch.Tensor(source_norm_poi3).to(device))
-        fused_emb_s3, _ = fusion(views)
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
     fused_emb_t, _ = fusion(views)
 
@@ -408,7 +420,7 @@ class DomainClassify(nn.Module):
         self.dc = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
                                 nn.ReLU(inplace=True),
                                 nn.Linear(self.emb_dim // 2, self.emb_dim // 2),
-                                nn.Linear(self.emb_dim // 2, 4))
+                                nn.Linear(self.emb_dim // 2, 2))
 
     def forward(self, feature):
         res = torch.sigmoid(self.dc(feature))
@@ -423,14 +435,10 @@ if args.node_adapt == "DT":
     # 实验确定
     pre = 25
     for i in range(pre):
-        loss_source, fused_emb_s, embs_s = forward_emb(source_graphs, source_norm_poi, source_od_adj, source_poi_cos)
-        loss_source2, fused_emb_s2, embs_s2 = forward_emb(source_graphs2, source_norm_poi2, source_od_adj2,
-                                                          source_poi_cos2)
-        loss_source3, fused_emb_s3, embs_s3 = forward_emb(source_graphs3, source_norm_poi3, source_od_adj3,
-                                                          source_poi_cos3)
+        loss_source, fused_emb_s, embs_s = forward_emb(virtual_graphs, virtual_norm_poi, virtual_od_adj, virtual_poi_cos)
         loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj, target_poi_cos)
 
-        loss_mvgat = loss_source + loss_target + loss_source2 + loss_source3
+        loss_mvgat = loss_source + loss_target
         meta_optimizer.zero_grad()
         loss_mvgat.backward()
         emb_optimizer.step()
@@ -444,29 +452,18 @@ if args.node_adapt == "DT":
     # plt.show()
 
     with torch.no_grad():
-        views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
+        views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
         # 融合模块指的是把多图的特征融合
         fused_emb_s, _ = fusion(views)
-        views = mvgat(source_graphs2, torch.Tensor(source_norm_poi2).to(device))
-        fused_emb_s2, _ = fusion(views)
-        if args.need_third == 1:
-            views = mvgat(source_graphs3, torch.Tensor(source_norm_poi3).to(device))
-            fused_emb_s3, _ = fusion(views)
         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
         fused_emb_t, _ = fusion(views)
 
-    s1 = np.array([1, 0, 0, 0])
-    s2 = np.array([0, 1, 0, 0])
-    s3 = np.array([0, 0, 1, 0])
-    st = np.array([0, 0, 0, 1])
-    x = torch.concat((fused_emb_s[th_mask_source.view(-1).bool()],
-                      fused_emb_s2[th_mask_source2.view(-1).bool()],
-                      fused_emb_s3[th_mask_source3.view(-1).bool()],
+    s1 = np.array([1, 0])
+    st = np.array([0, 1])
+    x = torch.concat((fused_emb_s[th_mask_virtual.view(-1).bool()],
                       fused_emb_t[th_mask_target.view(-1).bool()]), dim=0)
     y = []
-    y.extend([s1 for i in range(fused_emb_s[th_mask_source.view(-1).bool()].shape[0])])
-    y.extend([s2 for i in range(fused_emb_s2[th_mask_source2.view(-1).bool()].shape[0])])
-    y.extend([s3 for i in range(fused_emb_s3[th_mask_source3.view(-1).bool()].shape[0])])
+    y.extend([s1 for i in range(fused_emb_s[th_mask_virtual.view(-1).bool()].shape[0])])
     y.extend([st for i in range(fused_emb_t[th_mask_target.view(-1).bool()].shape[0])])
     y = torch.from_numpy(np.array(y))
     x = x.cpu().numpy()
@@ -476,9 +473,9 @@ if args.node_adapt == "DT":
     y = y[random_ids]
     x = torch.from_numpy(x)
     y = torch.from_numpy(y)
-    dt_train = (x[0: 1200], y[0: 1200])
-    dt_val = (x[1200: 1500], y[1200: 1500])
-    dt_test = (x[1500:], y[1500:])
+    dt_train = (x[0: 400], y[0: 400])
+    dt_val = (x[400: 600], y[400: 600])
+    dt_test = (x[600:], y[600:])
     dt_train_dataset = TensorDataset(dt_train[0], dt_train[1])
     dt_val_dataset = TensorDataset(dt_val[0], dt_val[1])
     dt_test_dataset = TensorDataset(dt_test[0], dt_test[1])
@@ -563,79 +560,47 @@ if args.node_adapt == "DT":
 def train_emb_epoch2():
 
     # loss， 460*64， 5*460*64
-    loss_source, fused_emb_s, embs_s = forward_emb(source_graphs, source_norm_poi, source_od_adj, source_poi_cos)
-    loss_source2, fused_emb_s2, embs_s2 = forward_emb(source_graphs2, source_norm_poi2, source_od_adj2, source_poi_cos2)
-    loss_source3, fused_emb_s3, embs_s3 = forward_emb(source_graphs3, source_norm_poi3, source_od_adj3, source_poi_cos3)
+    loss_source, fused_emb_s, embs_s = forward_emb(virtual_graphs, virtual_norm_poi, virtual_od_adj, virtual_poi_cos)
     loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj, target_poi_cos)
 
-    loss_emb = loss_source + loss_target + loss_source2 + loss_source3
+    loss_emb = loss_source + loss_target
     mmd_losses = None
     if args.node_adapt == "MMD":
         # compute domain adaptation loss
         # 随机抽样128个，计算最大平均误差
-        source_ids = np.random.randint(0, np.sum(mask_source), size=(128,))
-        source_ids2 = np.random.randint(0, np.sum(mask_source2), size=(128,))
-        source_ids3 = np.random.randint(0, np.sum(mask_source3), size=(128,))
+        source_ids = np.random.randint(0, np.sum(mask_virtual), size=(128,))
         target_ids = np.random.randint(0, np.sum(mask_target), size=(128,))
         # source1 & target
-        mmd_loss = mmd(fused_emb_s[th_mask_source.view(-1).bool()][source_ids, :],
+        mmd_loss = mmd(fused_emb_s[th_mask_virtual.view(-1).bool()][source_ids, :],
                        fused_emb_t[th_mask_target.view(-1).bool()][target_ids, :])
-        mmd_loss_source2_target = mmd(fused_emb_s2[th_mask_source2.view(-1).bool()][source_ids2, :],
-                                      fused_emb_t[th_mask_target.view(-1).bool()][target_ids, :])
-        mmd_loss_source2_source1 = mmd(fused_emb_s2[th_mask_source2.view(-1).bool()][source_ids2, :],
-                                       fused_emb_s[th_mask_source.view(-1).bool()][source_ids, :])
-        mmd_loss_source3_source1 = mmd(fused_emb_s3[th_mask_source3.view(-1).bool()][source_ids3, :],
-                                       fused_emb_s[th_mask_source.view(-1).bool()][source_ids, :])
-        mmd_loss_source3_target = mmd(fused_emb_s3[th_mask_source3.view(-1).bool()][source_ids3, :],
-                                      fused_emb_t[th_mask_target.view(-1).bool()][target_ids, :])
 
-        mmd_losses = mmd_loss + mmd_loss_source2_target + mmd_loss_source2_source1 + mmd_loss_source3_source1 + mmd_loss_source3_target
+        mmd_losses = mmd_loss
     elif args.node_adapt == "DT":
-        mmd_losses = dt(fused_emb_s[th_mask_source.view(-1).bool()]).sum() + \
-                     dt(fused_emb_s2[th_mask_source2.view(-1).bool()]).sum() + \
-                     dt(fused_emb_s3[th_mask_source3.view(-1).bool()]).sum() + \
+        mmd_losses = dt(fused_emb_s[th_mask_virtual.view(-1).bool()]).sum() + \
                      dt(fused_emb_t[th_mask_target.view(-1).bool()]).sum()
 
     # 随机抽样边256
-    source_batch_edges = np.random.randint(0, len(source_edges), size=(256,))
-    source_batch_edges2 = np.random.randint(0, len(source_edges2), size=(256,))
-    source_batch_edges3 = np.random.randint(0, len(source_edges3), size=(256,))
+    source_batch_edges = np.random.randint(0, len(virtual_edges), size=(256,))
     target_batch_edges = np.random.randint(0, len(target_edges), size=(256,))
-    source_batch_src = torch.Tensor(source_edges[source_batch_edges, 0]).long()
-    source_batch_dst = torch.Tensor(source_edges[source_batch_edges, 1]).long()
+    source_batch_src = torch.Tensor(virtual_edges[source_batch_edges, 0]).long()
+    source_batch_dst = torch.Tensor(virtual_edges[source_batch_edges, 1]).long()
     source_emb_src = fused_emb_s[source_batch_src, :]
     source_emb_dst = fused_emb_s[source_batch_dst, :]
-    source_batch_src2 = torch.Tensor(source_edges2[source_batch_edges2, 0]).long()
-    source_batch_dst2 = torch.Tensor(source_edges2[source_batch_edges2, 1]).long()
-    source_emb_src2 = fused_emb_s2[source_batch_src2, :]
-    source_emb_dst2 = fused_emb_s2[source_batch_dst2, :]
-    source_batch_src3 = torch.Tensor(source_edges3[source_batch_edges3, 0]).long()
-    source_batch_dst3 = torch.Tensor(source_edges3[source_batch_edges3, 1]).long()
-    source_emb_src3 = fused_emb_s3[source_batch_src3, :]
-    source_emb_dst3 = fused_emb_s3[source_batch_dst3, :]
     target_batch_src = torch.Tensor(target_edges[target_batch_edges, 0]).long()
     target_batch_dst = torch.Tensor(target_edges[target_batch_edges, 1]).long()
     target_emb_src = fused_emb_t[target_batch_src, :]
     target_emb_dst = fused_emb_t[target_batch_dst, :]
     # 源城市目的城市使用同样的边分类器
     pred_source = edge_disc.forward(source_emb_src, source_emb_dst)
-    pred_source2 = edge_disc.forward(source_emb_src2, source_emb_dst2)
-    pred_source3 = edge_disc.forward(source_emb_src3, source_emb_dst3)
     pred_target = edge_disc.forward(target_emb_src, target_emb_dst)
     source_batch_labels = torch.Tensor(source_edge_labels[source_batch_edges]).to(device)
-    source_batch_labels2 = torch.Tensor(source_edge_labels2[source_batch_edges2]).to(device)
-    source_batch_labels3 = torch.Tensor(source_edge_labels3[source_batch_edges3]).to(device)
     target_batch_labels = torch.Tensor(target_edge_labels[target_batch_edges]).to(device)
     # -（label*log(sigmod(pred)+0.000001)) + (1-label)*log(1-sigmod+0.000001) sum mean
     loss_et_source = -((source_batch_labels * torch.log(torch.sigmoid(pred_source) + 1e-6)) + (
             1 - source_batch_labels) * torch.log(1 - torch.sigmoid(pred_source) + 1e-6)).sum(1).mean()
-    loss_et_source2 = -((source_batch_labels2 * torch.log(torch.sigmoid(pred_source2) + 1e-6)) + (
-            1 - source_batch_labels2) * torch.log(1 - torch.sigmoid(pred_source2) + 1e-6)).sum(1).mean()
-    loss_et_source3 = -((source_batch_labels3 * torch.log(torch.sigmoid(pred_source3) + 1e-6)) + (
-            1 - source_batch_labels3) * torch.log(1 - torch.sigmoid(pred_source3) + 1e-6)).sum(1).mean()
     loss_et_target = -((target_batch_labels * torch.log(torch.sigmoid(pred_target) + 1e-6)) + (
             1 - target_batch_labels) * torch.log(1 - torch.sigmoid(pred_target) + 1e-6)).sum(1).mean()
-    loss_et = loss_et_source + loss_et_target + loss_et_source2 + loss_et_source3
+    loss_et = loss_et_source + loss_et_target
 
     emb_optimizer.zero_grad()
     # 公式11
@@ -662,13 +627,9 @@ for emb_ep in range(pretrain_emb_epoch):
 log("[%.2fs]Pretrain embeddings for %d epochs, average emb loss %.4f, node loss %.4f, edge loss %.4f" % (
     time.time() - start_time, pretrain_emb_epoch, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses)))
 with torch.no_grad():
-    views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
+    views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
     # 融合模块指的是把多图的特征融合
     fused_emb_s, _ = fusion(views)
-    views = mvgat(source_graphs2, torch.Tensor(source_norm_poi2).to(device))
-    fused_emb_s2, _ = fusion(views)
-    views = mvgat(source_graphs3, torch.Tensor(source_norm_poi3).to(device))
-    fused_emb_s3, _ = fusion(views)
     views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
     fused_emb_t, _ = fusion(views)
 
@@ -677,17 +638,13 @@ long_term_save["emb_losses"] = emb_losses
 long_term_save["mmd_losses"] = mmd_losses
 long_term_save["edge_losses"] = edge_losses
 
-emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
-emb_s2 = fused_emb_s2.cpu().numpy()[mask_source2.reshape(-1)]
-emb_s3 = fused_emb_s3.cpu().numpy()[mask_source3.reshape(-1)]
+emb_s = fused_emb_s.cpu().numpy()[mask_virtual.reshape(-1)]
 emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
 logreg = LogisticRegression(max_iter=500)
-cvscore_s = cross_validate(logreg, emb_s, source_emb_label)['test_score'].mean()
-cvscore_s2 = cross_validate(logreg, emb_s2, source_emb_label2)['test_score'].mean()
-cvscore_s3 = cross_validate(logreg, emb_s3, source_emb_label3)['test_score'].mean()
+cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
 cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
-log("[%.2fs]Pretraining embedding, source cvscore %.4f, source2 cvscore %.4f, source3 cvscore %.4f, target cvscore %.4f" % \
-    (time.time() - start_time, cvscore_s, cvscore_s2, cvscore_s3, cvscore_t))
+log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
+    (time.time() - start_time, cvscore_s, cvscore_t))
 log()
 
 
@@ -708,38 +665,22 @@ def net_fix(source, y, weight, mask, fast_weights, bn_vars):
     return fast_loss, fast_weights, bn_vars
 
 
-def meta_train_epoch(s_embs, s2_embs, s3_embs, t_embs):
+def meta_train_epoch(s_embs, t_embs):
     meta_query_losses = []
     for meta_ep in range(args.outeriter):
         fast_losses = []
         fast_weights, bn_vars = get_weights_bn_vars(net)
-        source_weights = scoring(s_embs, t_embs, th_mask_source, th_mask_target)
-        source_weights2 = scoring(s2_embs, t_embs, th_mask_source2, th_mask_target)
-        source_weights3 = scoring(s3_embs, t_embs, th_mask_source3, th_mask_target)
+        source_weights = scoring(s_embs, t_embs, th_mask_virtual, th_mask_target)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x), torch.Tensor(source_train_y)),
+            s_x1, s_y1 = batch_sampler((torch.Tensor(virtual_train_x), torch.Tensor(virtual_train_y)),
                                        args.meta_batch_size)
             s_x1 = s_x1.to(device)
             s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_source, fast_weights,
-                                                       bn_vars)
-            fast_losses.append(fast_loss.item())
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x2), torch.Tensor(source_train_y2)),
-                                       args.meta_batch_size)
-            s_x1 = s_x1.to(device)
-            s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights2, th_mask_source2, fast_weights,
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_virtual, fast_weights,
                                                        bn_vars)
             fast_losses.append(fast_loss.item())
 
-            s_x1, s_y1 = batch_sampler((torch.Tensor(source_train_x3), torch.Tensor(source_train_y3)),
-                                       args.meta_batch_size)
-            s_x1 = s_x1.to(device)
-            s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights3, th_mask_source3, fast_weights,
-                                                       bn_vars)
-            fast_losses.append(fast_loss.item())
 
         # inner loop on target, simulate fine-tune
         # 模拟微调和源训练都是在训练net预测网络，并没有提及权重和特征
@@ -789,9 +730,7 @@ def meta_train_epoch(s_embs, s2_embs, s3_embs, t_embs):
             q_losses.append(loss)
         q_loss = torch.stack(q_losses).mean()
         weights_mean = (source_weights ** 2).mean()
-        weights_mean2 = (source_weights2 ** 2).mean()
-        weights_mean3 = (source_weights3 ** 2).mean()
-        meta_loss = q_loss + weights_mean * args.weight_reg + weights_mean2 * args.weight_reg + weights_mean3 * args.weight_reg
+        meta_loss = q_loss + weights_mean * args.weight_reg
         meta_optimizer.zero_grad()
         meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
         torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
@@ -800,7 +739,7 @@ def meta_train_epoch(s_embs, s2_embs, s3_embs, t_embs):
     return np.mean(meta_query_losses)
 
 
-avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_s3, fused_emb_t)
+avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
 # 后期要用这个参数
 source_weights_ma_list = []
 source_weight_list = []
@@ -845,65 +784,41 @@ for ep in range(num_epochs):
         train_emb_losses.append((loss_emb_, loss_mmd_, loss_et_))
     # evaluate embeddings
     with torch.no_grad():
-        views = mvgat(source_graphs, torch.Tensor(source_norm_poi).to(device))
+        views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
         # 融合模块指的是把多图的特征融合
         fused_emb_s, _ = fusion(views)
-        views = mvgat(source_graphs2, torch.Tensor(source_norm_poi2).to(device))
-        fused_emb_s2, _ = fusion(views)
-        if args.need_third == 1:
-            views = mvgat(source_graphs3, torch.Tensor(source_norm_poi3).to(device))
-            fused_emb_s3, _ = fusion(views)
         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
         fused_emb_t, _ = fusion(views)
     if ep % 2 == 0:
         """
         每两个epoch显示一些数据
         """
-        emb_s = fused_emb_s.cpu().numpy()[mask_source.reshape(-1)]
-        emb_s2 = fused_emb_s2.cpu().numpy()[mask_source2.reshape(-1)]
+        emb_s = fused_emb_s.cpu().numpy()[mask_virtual.reshape(-1)]
         emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
         mix_embs = np.concatenate([emb_s, emb_t], axis=0)
-        mix_embs2 = np.concatenate([emb_s2, emb_t], axis=0)
-        mix_labels = np.concatenate([source_emb_label, target_emb_label])
-        mix_labels2 = np.concatenate([source_emb_label2, target_emb_label])
+        mix_labels = np.concatenate([virtual_emb_label, target_emb_label])
         logreg = LogisticRegression(max_iter=500)
-        cvscore_s = cross_validate(logreg, emb_s, source_emb_label)['test_score'].mean()
-        cvscore_s2 = cross_validate(logreg, emb_s2, source_emb_label2)['test_score'].mean()
+        cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
         cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
         cvscore_mix = cross_validate(logreg, mix_embs, mix_labels)['test_score'].mean()
-        cvscore_mix2 = cross_validate(logreg, mix_embs2, mix_labels2)['test_score'].mean()
         log(
-            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f, source cvscore2 %.4f, mixcvscore2 %.4f" % \
+            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
             (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
-             cvscore_t, cvscore_mix, cvscore_s2, cvscore_mix2))
+             cvscore_t, cvscore_mix))
 
 
-    avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_s2, fused_emb_s3, fused_emb_t)
+    avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
     with torch.no_grad():
-        source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_source, th_mask_target)
-        source_weights2 = scoring(fused_emb_s2, fused_emb_t, th_mask_source2, th_mask_target)
-        source_weights3 = scoring(fused_emb_s3, fused_emb_t, th_mask_source3, th_mask_target)
+        source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
         source_weight_list.append(list(source_weights.cpu().numpy()))
-        source_weight_list.append(list(source_weights2.cpu().numpy()))
-        source_weight_list.append(list(source_weights3.cpu().numpy()))
+
 
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-        source_weights_ma2 = torch.ones_like(source_weights2, device=device, requires_grad=False)
-        source_weights_ma3 = torch.ones_like(source_weights3, device=device, requires_grad=False)
     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
-    source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
-    source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
-    source_weights_ma_list.append(list(source_weights_ma2.cpu().numpy()))
-    source_weights_ma_list.append(list(source_weights_ma3.cpu().numpy()))
-    # source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
-    #                           num_iters=args.pretrain_iter)
-    # source_loss2 = train_epoch(net, source_loader2, pred_optimizer, weights=source_weights_ma2, mask=th_mask_source2,
-    #                            num_iters=args.pretrain_iter)
-    # source_loss3 = train_epoch(net, source_loader3, pred_optimizer, weights=source_weights_ma3, mask=th_mask_source3,
-    #                            num_iters=args.pretrain_iter)
-    virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=None, num_iters=args.pretrain_iter, mask=th_mask_virtual)
+    weight = None if args.need_weight == 0 else source_weights_ma
+    virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=weight, num_iters=args.pretrain_iter, mask=th_mask_virtual)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     log("[%.2fs]Epoch %d, virtual_source_loss %.4f" % (time.time() - start_time, ep, np.mean(virtual_source_loss)))
     log("[%.2fs]Epoch %d, target_loss %.4f" % (time.time() - start_time, ep, avg_target_loss))
