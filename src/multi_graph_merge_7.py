@@ -903,7 +903,7 @@ for ep in range(num_epochs):
     #                            num_iters=args.pretrain_iter)
     # source_loss3 = train_epoch(net, source_loader3, pred_optimizer, weights=source_weights_ma3, mask=th_mask_source3,
     #                            num_iters=args.pretrain_iter)
-    virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=None, num_iters=args.pretrain_iter)
+    virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=None, num_iters=args.pretrain_iter, mask=th_mask_virtual)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     log("[%.2fs]Epoch %d, virtual_source_loss %.4f" % (time.time() - start_time, ep, virtual_source_loss))
     log("[%.2fs]Epoch %d, target_loss %.4f" % (time.time() - start_time, ep, avg_target_loss))
