@@ -688,7 +688,7 @@ def meta_train_epoch(s_embs, t_embs):
                 # log(loss_source.shape)
                 loss_source = (loss_source * source_weights).mean(0).sum()
             elif len(pred_source.shape) == 3:  # STNet 
-                s_y = s_y.view(args.batch_size, 1, -1)[:, :, th_mask_source.view(-1).bool()]
+                s_y = s_y.view(args.meta_batch_size, 1, -1)[:, :, th_mask_source.view(-1).bool()]
                 loss_source = (((pred_source - s_y) ** 2) * source_weights.view(1, 1, -1))
                 # log(loss_source.shape)
                 # log(source_weights.shape)
