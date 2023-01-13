@@ -33,9 +33,13 @@ p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
 p_bar.process(0, 1, 5)
 # This file implements the full version of using region embeddings to select good source data. 
 args = params()
-c = ast.literal_eval(args.c)
-record = ResearchRecord(**c)
-record_id = record.insert(__file__, get_timestamp(), args.__str__())
+long_term_save = {}
+args = params()
+long_term_save["args"] = args.__str__()
+if args.c != "default":
+    c = ast.literal_eval(args.c)
+    record = ResearchRecord(**c)
+    record_id = record.insert(__file__, get_timestamp(), args.__str__())
 if args.seed != -1:
     # seed( ) 用于指定随机数生成时所用算法开始的整数值，如果使用相同的seed( )值，则每次生成的随即数都相同，
     # 如果不设置这个值，则系统根据时间来自己选择这个值，此时每次生成的随机数因时间差异而不同。
@@ -83,6 +87,8 @@ target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_
 p_bar.process(2, 1, 5)
 # (8784, 20, 23)
 source_data = np.load("../data/%s/%s%s_%s.npy" % (scity, dataname, scity, datatype))
+if args.cut_data != 0:
+    source_data = source_data[0: args.cut_data, :, :]
 # (20, 23)
 lng_source, lat_source = source_data.shape[1], source_data.shape[2]
 mask_source = source_data.sum(0) > 0
@@ -672,7 +678,7 @@ def meta_train_epoch(s_embs, t_embs):
         source_weights = scoring(s_embs, t_embs)
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
-            s_x, s_y = batch_sampler((torch.Tensor(source_x), torch.Tensor(source_y)), args.batch_size)
+            s_x, s_y = batch_sampler((torch.Tensor(source_x), torch.Tensor(source_y)), args.meta_batch_size)
             s_x = s_x.to(device)
             s_y = s_y.to(device)
             pred_source = net.functional_forward(s_x, th_mask_source.bool(), fast_weights, bn_vars, bn_training=True)
@@ -844,6 +850,21 @@ log()
 # 后期要用这个参数
 source_weights_ma_list = []
 source_weight_list = []
+train_emb_losses = []
+average_meta_query_loss = []
+source_validation_rmse = []
+target_validation_rmse = []
+source_validation_mae = []
+target_validation_mae = []
+train_target_val_loss = []
+train_source_val_loss = []
+target_pred_loss = []
+target_train_val_loss = []
+target_train_test_loss = []
+validation_rmse = []
+validation_mae = []
+test_rmse = []
+test_mae = []
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
@@ -959,14 +980,14 @@ for ep in range(num_epochs):
         sums = sums + test_losses[i].mean(0).sum().item()
     writer.add_scalar("source train test loss", sums, ep)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
-save_obj(source_weights_ma_list, path="source_weights_ma_list_{}.list".format(scity))
-save_obj(source_weight_list, path="source_weight_list_{}.list".format(scity))
+
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     # fine-tuning 
     net.train()
     avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
     log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
+    target_pred_loss.append(np.mean(avg_loss))
     net.eval()
     rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
@@ -974,10 +995,12 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     for i in range(len(val_losses)):
         sums = sums + val_losses[i].mean(0).sum().item()
     writer.add_scalar("target train val loss", sums, ep - num_epochs)
+    target_train_val_loss.append(sums)
     sums = 0
     for i in range(len(test_losses)):
         sums = sums + test_losses[i].mean(0).sum().item()
     writer.add_scalar("target train test loss", sums, ep - num_epochs)
+    target_train_test_loss.append(sums)
     if rmse_val < best_val_rmse:
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
@@ -989,10 +1012,60 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test mae", mae_test * (max_val - min_val), ep - num_epochs)
+    validation_rmse.append(rmse_val * (max_val - min_val))
+    validation_mae.append(mae_val * (max_val - min_val))
+    test_rmse.append(rmse_test * (max_val - min_val))
+    test_mae.append(mae_test * (max_val - min_val))
     log()
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-record.update(record_id, get_timestamp(),
-              "Best test rmse %.4f, mae %.4f" %
-              (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+long_term_save["source_weights_ma_list"] = source_weights_ma_list
+long_term_save["source_weight_list"] = source_weight_list
+long_term_save["train_emb_losses"] = train_emb_losses
+long_term_save["average_meta_query_loss"] = average_meta_query_loss
+long_term_save["source_validation_rmse"] = source_validation_rmse
+long_term_save["target_validation_rmse"] = target_validation_rmse
+long_term_save["source_validation_mae"] = source_validation_mae
+long_term_save["target_validation_mae"] = target_validation_mae
+long_term_save["train_target_val_loss"] = train_target_val_loss
+long_term_save["train_source_val_loss"] = train_source_val_loss
+long_term_save["target_pred_loss"] = target_pred_loss
+long_term_save["target_train_val_loss"] = target_train_val_loss
+long_term_save["target_train_test_loss"] = target_train_test_loss
+long_term_save["validation_rmse"] = validation_rmse
+long_term_save["validation_mae"] = validation_mae
+long_term_save["test_rmse"] = test_rmse
+long_term_save["test_mae"] = test_mae
+root_dir = local_path_generate(
+    "./model/{}".format(
+        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+            "单城市{}-{}".format(args.scity, args.tcity),
+            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+            args.topk, get_timestamp(split="-")
+        )
+    ), create_folder_only=True)
+torch.save(net, root_dir + "/net.pth")
+torch.save(mvgat, root_dir + "/mvgat.pth")
+torch.save(fusion, root_dir + "/fusion.pth")
+torch.save(scoring, root_dir + "/scoring.pth")
+torch.save(edge_disc, root_dir + "/edge_disc.pth")
+if args.c != "default":
+    record.update(record_id, get_timestamp(),
+                  "Best test rmse %.4f, mae %.4f" %
+                  (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+save_obj(long_term_save,
+         local_path_generate("experiment_data",
+                             "data_{}.collection".format(
+                                 "{}-batch-{}-{}-{}-{}-amount-{}-time-{}".format(
+                                     "单城市{}-{}".format(args.scity, args.tcity),
+                                     args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+                                     get_timestamp(split="-")
+                                 )
+                             )
+                             )
+         )
+if args.c != "default":
+    record.update(record_id, get_timestamp(),
+                  "%.4f,%.4f" %
+                  (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))

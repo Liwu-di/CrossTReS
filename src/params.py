@@ -101,6 +101,7 @@ def params():
     parser.add_argument("--tasks_val_rate", type=float, default=0.3)
     parser.add_argument("--tasks_test_rate", type=float, default=0.5)
     parser.add_argument("--need_weight", type=int, default=0)
+    parser.add_argument("--cut_data", type=int, default=3312)
     args = parser.parse_args()
 
     if args.seed != -1:
