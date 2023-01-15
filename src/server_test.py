@@ -630,7 +630,7 @@ epoch_loss = []
 val_loss = []
 test_loss = []
 test_accuracy = []
-epochs = args.road_epoch
+epochs = 1
 zero_weight = args.zero_rate
 rmse = args.rmse_rate
 mae = args.mae_rate
@@ -771,7 +771,7 @@ for i in range(virtual_road.shape[0]):
         p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
         dis.append(abs(m - p) + abs(n - q))
     dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
-    virtual_road[i, :] = road_pred.forward(poi1, poi2, dis)
+    virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
 virtual_road = add_self_loop(virtual_road)
 import seaborn as sns
 virtual_road = virtual_road.numpy()
