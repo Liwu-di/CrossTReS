@@ -631,6 +631,7 @@ val_loss = []
 test_loss = []
 test_accuracy = []
 epochs = 50
+zero_weight = 0.1
 for epoch in range(epochs):
     temp = []
     road_pred.train()
@@ -643,7 +644,10 @@ for epoch in range(epochs):
         poi2 = x[:, 14: 28]
         dis = x[:, 28: 29]
         out = road_pred.forward(poi1, poi2, dis)
-        loss = ((out - y) ** 2)
+        weight = torch.ones(y.shape)
+        for i in range(y.shape[0]):
+            weight[i] = 0.1
+        loss = ((out - y) ** 2) * weight
         loss = loss.sum()
         road_optimizer.zero_grad()
         loss.backward()
