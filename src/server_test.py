@@ -756,6 +756,8 @@ for epoch in range(epochs):
 
 
 virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
+virtual_poi = torch.from_numpy(virtual_poi)
+virtual_poi = virtual_poi.to(device)
 for i in range(virtual_city.shape[0]):
     for j in range(virtual_city.shape[1]):
         if i >= j:
@@ -765,9 +767,10 @@ for i in range(virtual_city.shape[0]):
             p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
             dis = abs(m - p) + abs(n - q)
             virtual_road[i][j] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
-            virtual_road[j][i] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
+            virtual_road[j][i] = virtual_road[i][j]
 virtual_road = add_self_loop(virtual_road)
 import seaborn as sns
+virtual_road = virtual_road.numpy()
 fig = sns.heatmap(virtual_road)
 heatmap = fig.get_figure()
 heatmap.show()
