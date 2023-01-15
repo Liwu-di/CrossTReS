@@ -657,7 +657,7 @@ for epoch in range(epochs):
             if torch.abs(y[i] - out[i]).item() <= (out[i] * 0.15).item():
                 weight[i] = 1
             else:
-                weight[i] = 10
+                weight[i] = args.flat_rate
             if y[i].item() == 0:
                 weight[i] = zero_weight
         weight = weight.to(device)
