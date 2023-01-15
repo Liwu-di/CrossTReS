@@ -743,13 +743,31 @@ for epoch in range(epochs):
         count_not_zero_x, count_not_zero_y, count_not_zero_equal, count_not_zero_one, count_not_zero_two
     ))
     log()
-import matplotlib.pyplot as plt
-plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(epoch_loss), label="train")
-plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(val_loss), label="val")
-plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_loss), label="test")
-plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_accuracy), label="acc")
-plt.xlabel("epoch")
-plt.ylabel("loss")
-plt.grid()
-plt.legend()
-plt.show()
+# import matplotlib.pyplot as plt
+# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(epoch_loss), label="train")
+# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(val_loss), label="val")
+# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_loss), label="test")
+# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_accuracy), label="acc")
+# plt.xlabel("epoch")
+# plt.ylabel("loss")
+# plt.grid()
+# plt.legend()
+# plt.show()
+
+
+virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
+for i in range(virtual_city.shape[0]):
+    for j in range(virtual_city.shape[1]):
+        if i >= j:
+            continue
+        else:
+            m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
+            p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
+            dis = abs(m - p) + abs(n - q)
+            virtual_road[i][j] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
+            virtual_road[j][i] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
+virtual_road = add_self_loop(virtual_road)
+import seaborn as sns
+fig = sns.heatmap(virtual_road)
+heatmap = fig.get_figure()
+heatmap.show()
