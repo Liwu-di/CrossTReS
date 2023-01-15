@@ -622,10 +622,16 @@ log("=============================")
 
 
 def similar(xx, yy):
-    if yy * 0.85 <= xx <= yy * 1.15:
-        return True
+    if yy > 0:
+        if yy * 0.85 <= xx <= yy * 1.15:
+            return True
+        else:
+            return False
     else:
-        return False
+        if -2 <= xx <= 2:
+            return True
+        else:
+            return False
 
 
 t, val, test = generate_road_loader([(source_poi, source_road_adj), (source_poi2, source_road_adj2), (target_poi, target_road_adj)], args)
