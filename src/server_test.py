@@ -707,7 +707,8 @@ for epoch in range(epochs):
                 count_not_zero_y = count_not_zero_y + 1
             if xx == yy:
                 count_true = count_true + 1
-                count_not_zero_equal = count_not_zero_equal + 1
+                if xx != 0:
+                    count_not_zero_equal = count_not_zero_equal + 1
 
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
