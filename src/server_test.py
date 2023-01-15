@@ -770,7 +770,7 @@ for i in range(virtual_road.shape[0]):
         m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
         p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
         dis.append(abs(m - p) + abs(n - q))
-    dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1))
+    dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
     virtual_road[i, :] = road_pred.forward(poi1, poi2, dis)
 virtual_road = add_self_loop(virtual_road)
 import seaborn as sns
