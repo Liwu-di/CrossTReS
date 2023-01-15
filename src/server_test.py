@@ -685,6 +685,7 @@ for epoch in range(epochs):
 
     count_sum = 0
     count_true = 0
+    count_not_zero = 0
     for i, (x, y) in enumerate(test):
         x = x.to(device)
         y = y.to(device)
@@ -701,7 +702,7 @@ for epoch in range(epochs):
             if xx == yy:
                 count_true = count_true + 1
                 if xx != 0:
-                    log(x)
+                    count_not_zero = count_not_zero + 1
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
 import matplotlib.pyplot as plt
