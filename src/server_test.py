@@ -761,7 +761,7 @@ for epoch in range(epochs):
 virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
 virtual_poi = torch.from_numpy(virtual_poi)
 virtual_poi = virtual_poi.to(device)
-
+virtual_poi = virtual_poi.to(torch.float32)
 for i in range(virtual_road.shape[0]):
     poi1 = torch.stack([virtual_poi[i] for j in range(virtual_road.shape[0])])
     poi2 = virtual_poi
