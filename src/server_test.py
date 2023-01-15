@@ -622,7 +622,7 @@ log("=============================")
 
 
 def similar(xx, yy):
-    if yy * 0.9 <= xx <= yy * 1.1:
+    if yy * 0.85 <= xx <= yy * 1.15:
         return True
     else:
         return False
@@ -654,10 +654,10 @@ for epoch in range(epochs):
         out = road_pred.forward(poi1, poi2, dis)
         weight = torch.ones(y.shape)
         for i in range(y.shape[0]):
-            if y[i] == 0:
-                weight[i] = zero_weight
+            if torch.abs(y[i] - out[i]).item() <= (out[i] * 0.15).item():
+                weight[i] = 1
             else:
-                weight[i] = y[i]
+                weight[i] = 100
         weight = weight.to(device)
         loss = ((rmse * (out - y) ** 2) + mae * torch.abs(out - y)) * weight
         loss = loss.sum()
