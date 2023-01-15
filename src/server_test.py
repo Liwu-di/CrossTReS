@@ -718,22 +718,22 @@ for epoch in range(epochs):
             xx = round(out[i].item())
             yy = y[i].item()
             count_sum = count_sum + 1
-            if xx != 0:
+            if xx > 0:
                 count_not_zero_x = count_not_zero_x + 1
-            if yy != 0:
+            if yy > 0:
                 count_not_zero_y = count_not_zero_y + 1
             if xx == yy:
                 count_true = count_true + 1
-                if xx != 0:
+                if xx > 0:
                     count_not_zero_equal = count_not_zero_equal + 1
                     count_not_zero_one = count_not_zero_one + 1
                     count_not_zero_two = count_not_zero_two + 1
             elif yy - 1 <= xx <= yy + 1:
-                if xx != 0:
+                if xx > 0:
                     count_not_zero_one = count_not_zero_one + 1
                     count_not_zero_two = count_not_zero_two + 1
             elif yy - 2 <= xx <= yy + 2:
-                if xx != 0:
+                if xx > 0:
                     count_not_zero_two = count_not_zero_two + 1
 
 
@@ -773,8 +773,8 @@ with torch.no_grad():
         dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
         virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
     virtual_road = add_self_loop(virtual_road)
-    for i in virtual_road.shape[0]:
-        for j in virtual_road.shape[1]:
+    for i in range(virtual_road.shape[0]):
+        for j in range(virtual_road.shape[1]):
             if virtual_road[i][j] <= 0:
                 virtual_road[i][j] = 0
     import seaborn as sns
