@@ -766,7 +766,7 @@ for i in range(virtual_city.shape[0]):
             m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
             p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
             dis = abs(m - p) + abs(n - q)
-            dis = torch.from_numpy([dis])
+            dis = torch.from_numpy(np.array([dis]))
             virtual_road[i][j] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
             virtual_road[j][i] = virtual_road[i][j]
 virtual_road = add_self_loop(virtual_road)
