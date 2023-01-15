@@ -685,7 +685,9 @@ for epoch in range(epochs):
 
     count_sum = 0
     count_true = 0
-    count_not_zero = 0
+    count_not_zero_x = 0
+    count_not_zero_y = 0
+    count_not_zero_equal = 0
     for i, (x, y) in enumerate(test):
         x = x.to(device)
         y = y.to(device)
@@ -699,12 +701,20 @@ for epoch in range(epochs):
             xx = round(out[i].item())
             yy = y[i].item()
             count_sum = count_sum + 1
+            if xx != 0:
+                count_not_zero_x = count_not_zero_x + 1
+            if yy != 0:
+                count_not_zero_y = count_not_zero_y + 1
             if xx == yy:
                 count_true = count_true + 1
-                if xx != 0:
-                    count_not_zero = count_not_zero + 1
+                count_not_zero_equal = count_not_zero_equal + 1
+
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
+    log("count_not_zero_x {} count_not_zero_y {} count_not_zero_equal {}".format(
+        count_not_zero_x, count_not_zero_y, count_not_zero_equal
+    ))
+    log()
 import matplotlib.pyplot as plt
 plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(epoch_loss), label="train")
 plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(val_loss), label="val")
