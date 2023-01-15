@@ -647,7 +647,7 @@ for epoch in range(epochs):
         weight = torch.ones(y.shape)
         for i in range(y.shape[0]):
             weight[i] = 0.1
-        weight.to(device)
+        weight = weight.to(device)
         loss = ((out - y) ** 2) * weight
         loss = loss.sum()
         road_optimizer.zero_grad()
