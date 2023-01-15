@@ -754,22 +754,24 @@ for epoch in range(epochs):
 # plt.legend()
 # plt.show()
 
+# torch.save(road_pred, local_path_generate("", "road_pred.pth"))
+# road_pred2 = torch.load(local_path_generate("", "road_pred.pth"))
+
 
 virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
 virtual_poi = torch.from_numpy(virtual_poi)
 virtual_poi = virtual_poi.to(device)
-virtual_poi = virtual_poi.to(torch.double)
-for i in range(virtual_city.shape[0]):
-    for j in range(virtual_city.shape[1]):
-        if i >= j:
-            continue
-        else:
-            m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
-            p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
-            dis = abs(m - p) + abs(n - q)
-            dis = torch.from_numpy(np.array([dis]))
-            virtual_road[i][j] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
-            virtual_road[j][i] = virtual_road[i][j]
+
+for i in range(virtual_road.shape[0]):
+    poi1 = torch.stack([virtual_poi[i] for j in range(virtual_road.shape[0])])
+    poi2 = virtual_poi
+    dis = []
+    for j in range(virtual_road.shape[0]):
+        m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
+        p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
+        dis.append(abs(m - p) + abs(n - q))
+    dis = torch.from_numpy(np.array([dis]))
+    virtual_road[i][j] = round(road_pred.forward(virtual_poi[i], virtual_poi[j], dis).item())
 virtual_road = add_self_loop(virtual_road)
 import seaborn as sns
 virtual_road = virtual_road.numpy()
