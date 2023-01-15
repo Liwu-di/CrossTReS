@@ -777,4 +777,6 @@ with torch.no_grad():
     virtual_road = virtual_road.cpu().numpy()
     fig = sns.heatmap(virtual_road)
     heatmap = fig.get_figure()
-    heatmap.show()
+    heatmap = fig.get_figure()
+    heatmap.savefig(local_path_generate("", "virtual_road.png"),
+                    dpi=400)
