@@ -700,6 +700,8 @@ for epoch in range(epochs):
             count_sum = count_sum + 1
             if xx == yy:
                 count_true = count_true + 1
+                if xx != 0:
+                    log(x)
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
 import matplotlib.pyplot as plt
