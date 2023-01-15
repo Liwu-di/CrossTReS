@@ -628,7 +628,7 @@ def similar(xx, yy):
         else:
             return False
     else:
-        if -2 <= xx <= 2:
+        if -2 <= xx <= 0.5:
             return True
         else:
             return False
