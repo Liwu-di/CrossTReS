@@ -540,8 +540,7 @@ class Road(nn.Module):
                                       nn.Linear(self.emb_dim // 2, self.emb_dim))
         self.road = nn.Sequential(nn.Linear(self.emb_dim * 3, self.emb_dim),
                                   nn.ReLU(inplace=True),
-                                  nn.Linear(self.emb_dim, 1),
-                                  nn.ReLU(inplace=True))
+                                  nn.Linear(self.emb_dim, 1))
 
     def forward(self, poi1, poi2, distance):
         poi1 = self.poi(poi1)

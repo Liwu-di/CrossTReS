@@ -773,6 +773,10 @@ with torch.no_grad():
         dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
         virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
     virtual_road = add_self_loop(virtual_road)
+    for i in virtual_road.shape[0]:
+        for j in virtual_road.shape[1]:
+            if virtual_road[i][j] <= 0:
+                virtual_road[i][j] = 0
     import seaborn as sns
     virtual_road = virtual_road.cpu().numpy()
     fig = sns.heatmap(virtual_road)
