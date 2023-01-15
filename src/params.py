@@ -102,6 +102,10 @@ def params():
     parser.add_argument("--tasks_test_rate", type=float, default=0.5)
     parser.add_argument("--need_weight", type=int, default=0)
     parser.add_argument("--cut_data", type=int, default=3312)
+    parser.add_argument("--mae_rate", type=float, default=1)
+    parser.add_argument("--rmse_rate", type=float, default=1)
+    parser.add_argument("--zero_rate", type=float, default=0.01)
+    parser.add_argument("--road_epoch", type=int, default=20)
     args = parser.parse_args()
 
     if args.seed != -1:

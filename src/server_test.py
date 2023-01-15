@@ -630,8 +630,10 @@ epoch_loss = []
 val_loss = []
 test_loss = []
 test_accuracy = []
-epochs = 50
-zero_weight = 0.1
+epochs = args.road_epoch
+zero_weight = args.zero_rate
+rmse = args.rmse_rate
+mae = args.mae_rate
 for epoch in range(epochs):
     temp = []
     road_pred.train()
@@ -646,9 +648,9 @@ for epoch in range(epochs):
         out = road_pred.forward(poi1, poi2, dis)
         weight = torch.ones(y.shape)
         for i in range(y.shape[0]):
-            weight[i] = 0.1
+            weight[i] = zero_weight
         weight = weight.to(device)
-        loss = ((out - y) ** 2) * weight
+        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
         loss = loss.sum()
         road_optimizer.zero_grad()
         loss.backward()
