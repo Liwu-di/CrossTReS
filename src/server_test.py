@@ -654,7 +654,7 @@ for epoch in range(epochs):
         loss = loss.sum()
         road_optimizer.zero_grad()
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(road_pred.parameters(), max_norm=2)
+        # torch.nn.utils.clip_grad_norm_(road_pred.parameters(), max_norm=2)
         road_optimizer.step()
         temp.append(loss.item())
     epoch_loss.append(np.array(temp).mean())
