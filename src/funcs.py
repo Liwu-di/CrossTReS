@@ -526,3 +526,71 @@ def load_process_data(args, p_bar):
            source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
            source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
            target_train_y, th_mask_target, device, p_bar
+
+class Road(nn.Module):
+
+    def __init__(self, emb_dim) -> None:
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.poi = nn.Sequential(nn.Linear(14, self.emb_dim // 2),
+                                 nn.ReLU(inplace=True),
+                                 nn.Linear(self.emb_dim // 2, self.emb_dim))
+        self.distance = nn.Sequential(nn.Linear(1, self.emb_dim // 2),
+                                      nn.ReLU(inplace=True),
+                                      nn.Linear(self.emb_dim // 2, self.emb_dim))
+        self.road = nn.Sequential(nn.Linear(self.emb_dim * 3, self.emb_dim),
+                                  nn.ReLU(inplace=True),
+                                  nn.Linear(self.emb_dim, 1))
+
+    def forward(self, poi1, poi2, distance):
+        poi1 = self.poi(poi1)
+        poi2 = self.poi(poi2)
+        dis = self.distance(distance)
+        fus = torch.concat((poi1, poi2, dis), dim=1)
+        road = self.road(fus)
+        return road
+
+
+def generate_road_loader(city_adjs: List[tuple], args):
+    sums = 0
+    for c in city_adjs:
+        sums = sums + (c[1].shape[0] - 1) * (c[1].shape[1] / 2)
+    sums = int(sums)
+    x = np.zeros((sums, 29))
+    y = np.zeros((sums, 1))
+    count = 0
+    train_num = int(sums * 0.7)
+    val_num = int(sums * 0.15)
+    test_num = sums - train_num - val_num
+
+    for c in city_adjs:
+        for i in range(c[1].shape[0]):
+            for j in range(c[1].shape[0]):
+                if i >= j:
+                    continue
+                p, q = idx_1d22d(i, c[0].shape)
+                m, n = idx_1d22d(j, c[0].shape)
+                poi1 = c[0][i, :]
+                poi2 = c[0][j, :]
+                dis = abs(p - m) + abs(q - n)
+                x[count, :] = np.concatenate((poi1, poi2, np.array([dis])), axis=0)
+                road = c[1][i][j]
+                y[count, :] = road
+                count = count + 1
+    random_ids = np.random.randint(0, x.shape[0], size=x.shape[0])
+    x = x[random_ids]
+    y = y[random_ids]
+    train_x = x[0: train_num, :]
+    train_y = y[0: train_num, :]
+    val_x = x[train_num: train_num + val_num, :]
+    val_y = y[train_num: train_num + val_num, :]
+    test_x = x[train_num + val_num: , :]
+    test_y = y[train_num + val_num: , :]
+    train_x, train_y, val_x, val_y, test_x, test_y = (torch.from_numpy(i) for i in [train_x, train_y, val_x, val_y, test_x, test_y])
+    train_dataset = TensorDataset(train_x, train_y)
+    val_dataset = TensorDataset(val_x, val_y)
+    test_dataset = TensorDataset(test_x, test_y)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
+    return train_loader, val_loader, test_loader
