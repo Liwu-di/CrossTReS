@@ -622,7 +622,7 @@ log("=============================")
 
 
 
-t, val, test = generate_road_loader([(source_poi, source_road_adj), (source_poi2, source_road_adj2), (source_poi3, source_road_adj3), (target_poi, target_road_adj)], args)
+t, val, test = generate_road_loader([(source_poi, source_road_adj), (source_poi2, source_road_adj2), (target_poi, target_road_adj)], args)
 road_pred = Road(emb_dim)
 road_pred.to(device)
 road_optimizer = optim.Adam(road_pred.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
