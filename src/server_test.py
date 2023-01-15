@@ -658,6 +658,8 @@ for epoch in range(epochs):
                 weight[i] = 1
             else:
                 weight[i] = 100
+            if y[i].item() == 0:
+                weight[i] = zero_weight
         weight = weight.to(device)
         loss = ((rmse * (out - y) ** 2) + mae * torch.abs(out - y)) * weight
         loss = loss.sum()
