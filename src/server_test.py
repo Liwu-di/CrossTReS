@@ -692,6 +692,8 @@ for epoch in range(epochs):
     count_not_zero_x = 0
     count_not_zero_y = 0
     count_not_zero_equal = 0
+    count_not_zero_one = 0
+    count_not_zero_two = 0
     for i, (x, y) in enumerate(test):
         x = x.to(device)
         y = y.to(device)
@@ -713,11 +715,21 @@ for epoch in range(epochs):
                 count_true = count_true + 1
                 if xx != 0:
                     count_not_zero_equal = count_not_zero_equal + 1
+                    count_not_zero_one = count_not_zero_one + 1
+                    count_not_zero_two = count_not_zero_two + 1
+            elif yy - 1 <= xx <= yy + 1:
+                if xx != 0:
+                    count_not_zero_one = count_not_zero_one + 1
+                    count_not_zero_two = count_not_zero_two + 1
+            elif yy - 2 <= xx <= yy + 2:
+                if xx != 0:
+                    count_not_zero_two = count_not_zero_two + 1
+
 
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
-    log("count_not_zero_x {} count_not_zero_y {} count_not_zero_equal {}".format(
-        count_not_zero_x, count_not_zero_y, count_not_zero_equal
+    log("count_not_zero_x {} count_not_zero_y {} count_not_zero_equal {}, one {}, two {}".format(
+        count_not_zero_x, count_not_zero_y, count_not_zero_equal, count_not_zero_one, count_not_zero_two
     ))
     log()
 import matplotlib.pyplot as plt
