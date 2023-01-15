@@ -710,7 +710,9 @@ for epoch in range(epochs):
     test_loss.append(np.array(temp).mean())
 
     count_sum = 0
+    count_sum_not_zero = 0
     count_true = 0
+    count_true_sum = 0
     count_not_zero_x = 0
     count_not_zero_y = 0
     for i, (x, y) in enumerate(test):
@@ -725,16 +727,20 @@ for epoch in range(epochs):
         for i in range(out.shape[0]):
             xx = round(out[i].item())
             yy = y[i].item()
+            if y[i] > 0:
+                count_sum_not_zero = count_sum_not_zero + 1
             count_sum = count_sum + 1
             if xx > 0:
                 count_not_zero_x = count_not_zero_x + 1
             if yy > 0:
                 count_not_zero_y = count_not_zero_y + 1
             if similar(xx, yy):
+                if yy > 0:
+                    count_true_sum = count_true_sum + 1
                 count_true = count_true + 1
 
     test_accuracy.append(count_true / count_sum)
-    log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
+    log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1], count_true_sum / count_sum_not_zero)
     log("count_not_zero_x {} count_not_zero_y {} ".format(
         count_not_zero_x, count_not_zero_y))
     log()
