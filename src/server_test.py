@@ -741,7 +741,6 @@ for epoch in range(epochs):
                 else:
                     count_true_zero = count_true_zero + 1
 
-    test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], count_true_zero / count_sum_zero, count_true_not_zero / count_sum_not_zero)
     log("count_not_zero_x {} count_not_zero_y {} ".format(
         count_not_zero_x, count_not_zero_y))
