@@ -757,24 +757,24 @@ for epoch in range(epochs):
 # torch.save(road_pred, local_path_generate("", "road_pred.pth"))
 # road_pred2 = torch.load(local_path_generate("", "road_pred.pth"))
 
-
-virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
-virtual_poi = torch.from_numpy(virtual_poi)
-virtual_poi = virtual_poi.to(device)
-virtual_poi = virtual_poi.to(torch.float32)
-for i in range(virtual_road.shape[0]):
-    poi1 = torch.stack([virtual_poi[i] for j in range(virtual_road.shape[0])])
-    poi2 = virtual_poi
-    dis = []
-    for j in range(virtual_road.shape[0]):
-        m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
-        p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
-        dis.append(abs(m - p) + abs(n - q))
-    dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
-    virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
-virtual_road = add_self_loop(virtual_road)
-import seaborn as sns
-virtual_road = virtual_road.numpy()
-fig = sns.heatmap(virtual_road)
-heatmap = fig.get_figure()
-heatmap.show()
+with torch.no_grad():
+    virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
+    virtual_poi = torch.from_numpy(virtual_poi)
+    virtual_poi = virtual_poi.to(device)
+    virtual_poi = virtual_poi.to(torch.float32)
+    for i in range(virtual_road.shape[0]):
+        poi1 = torch.stack([virtual_poi[i] for j in range(virtual_road.shape[0])])
+        poi2 = virtual_poi
+        dis = []
+        for j in range(virtual_road.shape[0]):
+            m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
+            p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
+            dis.append(abs(m - p) + abs(n - q))
+        dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
+        virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
+    virtual_road = add_self_loop(virtual_road)
+    import seaborn as sns
+    virtual_road = virtual_road.cpu().numpy()
+    fig = sns.heatmap(virtual_road)
+    heatmap = fig.get_figure()
+    heatmap.show()
