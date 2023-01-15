@@ -648,7 +648,10 @@ for epoch in range(epochs):
         out = road_pred.forward(poi1, poi2, dis)
         weight = torch.ones(y.shape)
         for i in range(y.shape[0]):
-            weight[i] = zero_weight
+            if y[i] == 0:
+                weight[i] = zero_weight
+            else:
+                weight[i] = y[i]
         weight = weight.to(device)
         loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
         loss = loss.sum()
