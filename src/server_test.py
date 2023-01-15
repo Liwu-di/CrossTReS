@@ -621,6 +621,12 @@ log("=====需要什么在这之后加什么======")
 log("=============================")
 
 
+def similar(xx, yy):
+    if yy * 0.9 <= xx <= yy * 1.1:
+        return True
+    else:
+        return False
+
 
 t, val, test = generate_road_loader([(source_poi, source_road_adj), (source_poi2, source_road_adj2), (target_poi, target_road_adj)], args)
 road_pred = Road(emb_dim)
@@ -653,7 +659,7 @@ for epoch in range(epochs):
             else:
                 weight[i] = y[i]
         weight = weight.to(device)
-        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
+        loss = ((rmse * (out - y) ** 2) + mae * torch.abs(out - y)) * weight
         loss = loss.sum()
         road_optimizer.zero_grad()
         loss.backward()
@@ -705,9 +711,6 @@ for epoch in range(epochs):
     count_true = 0
     count_not_zero_x = 0
     count_not_zero_y = 0
-    count_not_zero_equal = 0
-    count_not_zero_one = 0
-    count_not_zero_two = 0
     for i, (x, y) in enumerate(test):
         x = x.to(device)
         y = y.to(device)
@@ -725,26 +728,13 @@ for epoch in range(epochs):
                 count_not_zero_x = count_not_zero_x + 1
             if yy > 0:
                 count_not_zero_y = count_not_zero_y + 1
-            if xx == yy:
+            if similar(xx, yy):
                 count_true = count_true + 1
-                if xx > 0:
-                    count_not_zero_equal = count_not_zero_equal + 1
-                    count_not_zero_one = count_not_zero_one + 1
-                    count_not_zero_two = count_not_zero_two + 1
-            elif yy - 1 <= xx <= yy + 1:
-                if xx > 0:
-                    count_not_zero_one = count_not_zero_one + 1
-                    count_not_zero_two = count_not_zero_two + 1
-            elif yy - 2 <= xx <= yy + 2:
-                if xx > 0:
-                    count_not_zero_two = count_not_zero_two + 1
-
 
     test_accuracy.append(count_true / count_sum)
     log(epoch_loss[-1], val_loss[-1], test_loss[-1], test_accuracy[-1])
-    log("count_not_zero_x {} count_not_zero_y {} count_not_zero_equal {}, one {}, two {}".format(
-        count_not_zero_x, count_not_zero_y, count_not_zero_equal, count_not_zero_one, count_not_zero_two
-    ))
+    log("count_not_zero_x {} count_not_zero_y {} ".format(
+        count_not_zero_x, count_not_zero_y))
     log()
 # import matplotlib.pyplot as plt
 # plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(epoch_loss), label="train")
