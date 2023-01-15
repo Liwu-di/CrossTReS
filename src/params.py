@@ -105,6 +105,7 @@ def params():
     parser.add_argument("--mae_rate", type=float, default=1)
     parser.add_argument("--rmse_rate", type=float, default=1)
     parser.add_argument("--zero_rate", type=float, default=0.01)
+    parser.add_argument("--flat_rate", type=float, default=20)
     parser.add_argument("--road_epoch", type=int, default=20)
     args = parser.parse_args()
 
