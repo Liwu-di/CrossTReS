@@ -670,7 +670,11 @@ for epoch in range(epochs):
         poi2 = x[:, 14: 28]
         dis = x[:, 28: 29]
         out = road_pred.forward(poi1, poi2, dis)
-        loss = ((out - y) ** 2)
+        weight = torch.ones(y.shape)
+        for i in range(y.shape[0]):
+            weight[i] = zero_weight
+        weight = weight.to(device)
+        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
         loss = loss.sum()
         temp.append(loss.item())
     val_loss.append(np.array(temp).mean())
@@ -685,7 +689,11 @@ for epoch in range(epochs):
         poi2 = x[:, 14: 28]
         dis = x[:, 28: 29]
         out = road_pred.forward(poi1, poi2, dis)
-        loss = ((out - y) ** 2)
+        weight = torch.ones(y.shape)
+        for i in range(y.shape[0]):
+            weight[i] = zero_weight
+        weight = weight.to(device)
+        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
         loss = loss.sum()
         temp.append(loss.item())
     test_loss.append(np.array(temp).mean())
