@@ -641,16 +641,8 @@ def yield_8_near(i, ranges):
             for p in [-2, -1, 0]:
                 yield i[0] + k, i[1] + p
 
-def save_model(args, net, mvgat, fusion, scoring, edge_disc):
+def save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir):
     log(" ============== save model ================ ")
-    root_dir = local_path_generate(
-        "./model/{}".format(
-            "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
-                "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
-                args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-                args.topk, get_timestamp(split="-")
-            )
-        ), create_folder_only=True)
     torch.save(net, root_dir + "/net.pth")
     torch.save(mvgat, root_dir + "/mvgat.pth")
     torch.save(fusion, root_dir + "/fusion.pth")

@@ -790,6 +790,15 @@ for i in range(len(target_data_8_region_list)):
 #         th_mask_tensors = mask_tensors.reshape((1, tensors_.shape[1], tensors_.shape[2])).to(device)
 #         train_epoch(net, tensors_loader, pred_optimizer, mask=th_mask_tensors)
 
+
+root_dir = local_path_generate(
+        "./model/{}".format(
+            "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+                "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
+                args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+                args.topk, get_timestamp(split="-")
+            )
+        ), create_folder_only=True)
 region_losses_epoch = []
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     # fine-tuning
@@ -848,7 +857,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_val_rmse = val_rmse
         best_test_rmse = rmse_test
         best_test_mae = mae_test
-        save_model(args, net, mvgat, fusion, scoring, edge_disc)
+        save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     target_pred_loss.append(region_train_losses)
     target_train_val_loss.append(region_val_losses)

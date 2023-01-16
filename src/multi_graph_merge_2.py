@@ -1424,6 +1424,14 @@ save_obj(source_weights_ma_list, path="source_weights_ma_list_{}.list".format(sc
 save_obj(source_weight_list, path="source_weight_list_{}.list".format(scity))
 """
 
+root_dir = local_path_generate(
+        "./model/{}".format(
+            "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+                "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
+                args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+                args.topk, get_timestamp(split="-")
+            )
+        ), create_folder_only=True)
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     # fine-tuning
     net.train()
@@ -1448,7 +1456,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
         best_test_mae = mae_test
-        save_model(args, net, mvgat, fusion, scoring, edge_disc)
+        save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
