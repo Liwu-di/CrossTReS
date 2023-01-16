@@ -623,7 +623,7 @@ log("=============================")
 
 def similar(xx, yy):
     if yy > 0:
-        if yy * 0.85 <= xx <= yy * 1.15:
+        if yy * (1 - args.accuracy) <= xx <= yy * (1 + args.accuracy):
             return True
         else:
             return False

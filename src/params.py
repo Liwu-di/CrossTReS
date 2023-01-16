@@ -107,6 +107,8 @@ def params():
     parser.add_argument("--zero_rate", type=float, default=0.01)
     parser.add_argument("--flat_rate", type=float, default=20)
     parser.add_argument("--road_epoch", type=int, default=20)
+    parser.add_argument("--threshold", type=float, default=0.2)
+    parser.add_argument("--accuracy", type=float, default=0.2)
     args = parser.parse_args()
 
     if args.seed != -1:
