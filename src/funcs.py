@@ -642,6 +642,7 @@ def yield_8_near(i, ranges):
                 yield i[0] + k, i[1] + p
 
 def save_model(args, net, mvgat, fusion, scoring, edge_disc):
+    log(" ============== save model ================ ")
     root_dir = local_path_generate(
         "./model/{}".format(
             "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
