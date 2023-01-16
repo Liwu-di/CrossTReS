@@ -739,6 +739,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
         best_test_mae = mae_test
+        save_model(args, net, mvgat, fusion, scoring, edge_disc)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
@@ -772,19 +773,7 @@ long_term_save["test_rmse"] = test_rmse
 long_term_save["test_mae"] = test_mae
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-root_dir = local_path_generate(
-    "./model/{}".format(
-        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
-            "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
-            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-            args.topk, get_timestamp(split="-")
-        )
-    ), create_folder_only=True)
-torch.save(net, root_dir + "/net.pth")
-torch.save(mvgat, root_dir + "/mvgat.pth")
-torch.save(fusion, root_dir + "/fusion.pth")
-torch.save(scoring, root_dir + "/scoring.pth")
-torch.save(edge_disc, root_dir + "/edge_disc.pth")
+
 save_obj(long_term_save,
          local_path_generate("experiment_data",
                              "data_{}.collection".format(
