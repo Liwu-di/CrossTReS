@@ -135,7 +135,7 @@ threshold = args.threshold
 s1_amont = args.s1_amont
 s2_amont = args.s2_amont
 s3_amont = args.s3_amont
-time_threshold = 3312
+time_threshold = args.cut_data
 
 s1_regions.extend([idx_1d22d(s1_time_weight.argsort()[-i], (source_data.shape[1], source_data.shape[2])) for i in range(s1_amont)])
 s2_regions.extend([idx_1d22d(s2_time_weight.argsort()[-i], (source_data2.shape[1], source_data2.shape[2])) for i in range(s2_amont)])
