@@ -112,6 +112,7 @@ def params():
     parser.add_argument("--s1_amont", type=int, default=200)
     parser.add_argument("--s2_amont", type=int, default=200)
     parser.add_argument("--s3_amont", type=int, default=200)
+    parser.add_argument("--test_mode_path", type=str)
     args = parser.parse_args()
 
     if args.seed != -1:
