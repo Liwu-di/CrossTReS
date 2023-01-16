@@ -290,7 +290,7 @@ for i in range(virtual_source_coord.shape[0] * virtual_source_coord.shape[1]):
 for i in range(virtual_road.shape[0]):
     virtual_road[i][i] = 1
 
-
+virtual_poi = virtual_poi.reshape((virtual_city.shape[1] * virtual_city.shape[2], 14))
 lng_virtual, lat_virtual = virtual_city.shape[1], virtual_city.shape[2]
 mask_virtual = virtual_city.sum(0) > 0
 th_mask_virtual = torch.Tensor(mask_virtual.reshape(1, lng_virtual, lat_virtual)).to(device)
