@@ -112,54 +112,183 @@ if args.need_third == 1:
 # 这里使用已经生成好的DTW进行筛选重要节点
 # =========================================
 
+#%%
 path = "./time_weight/time_weight{}_{}_{}_{}_{}.npy"
 s1_time_weight = np.load(path.format(scity, tcity, datatype, dataname, args.data_amount)).sum(2)
 s1_time_weight, _, _ = min_max_normalize(s1_time_weight)
+s1_time_weight = s1_time_weight.reshape(-1)
+
 s2_time_weight = np.load(path.format(scity2, tcity, datatype, dataname, args.data_amount)).sum(2)
 s2_time_weight, _, _ = min_max_normalize(s2_time_weight)
+s2_time_weight = s2_time_weight.reshape(-1)
+
+s1_regions = []
+s2_regions = []
+s3_regions = []
+
 if args.need_third == 1:
     s3_time_weight = np.load(path.format(scity3, tcity, datatype, dataname, args.data_amount)).sum(2)
     s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
-virtual_regions = source_data.shape[1] * source_data.shape[2]
-threshold = 0.0
-time_threshold = 3312
-for i in range(10, 95, 5):
-    if args.need_third == 1:
-        l = (s1_time_weight > (i / 100)).sum() + (s2_time_weight > (i / 100)).sum() + (s3_time_weight > (i / 100)).sum()
-        r = (s1_time_weight > ((i / 100) +0.05)).sum() + (s2_time_weight > ((i / 100) +0.05)).sum() + (s3_time_weight > ((i / 100) +0.05)).sum()
-    else:
-        l = (s1_time_weight > (i / 100)).sum() + (s2_time_weight > (i / 100)).sum()
-        r = (s1_time_weight > ((i / 100) + 0.05)).sum() + (s2_time_weight > ((i / 100) + 0.05)).sum()
+    s3_time_weight = s3_time_weight.reshape(-1)
 
-    if l > virtual_regions > r:
-        threshold = (i / 100) + 0.05
-        break
-    threshold = 0.25
-count = 0
-virtual_city = np.zeros((time_threshold, source_data.shape[1], source_data.shape[2]))
-virtual_poi = np.zeros((source_data.shape[1] * source_data.shape[2], 14))
-for i in range(source_data.shape[1]):
-    for j in range(source_data.shape[2]):
-        if s1_time_weight[i][j] > threshold:
-            x, y = idx_1d22d(count, (virtual_city.shape[1], virtual_city.shape[2]))
-            virtual_city[:, x, y] = source_data[0: time_threshold, i, j]
-            virtual_poi[count, :] = source_poi[idx_2d_2_1d((i, j), (source_data.shape[1], source_data.shape[2])), :]
-            count = count + 1
-for i in range(source_data2.shape[1]):
-    for j in range(source_data2.shape[2]):
-        if s2_time_weight[i][j] > threshold:
-            x, y = idx_1d22d(count, (virtual_city.shape[1], virtual_city.shape[2]))
-            virtual_city[:, x, y] = source_data2[0: time_threshold, i, j]
-            virtual_poi[count, :] = source_poi2[idx_2d_2_1d((i, j), (source_data2.shape[1], source_data2.shape[2])), :]
-            count = count + 1
+threshold = args.threshold
+s1_amont = args.s1_amont
+s2_amont = args.s2_amont
+s3_amont = args.s3_amont
+time_threshold = 3312
+
+s1_regions.extend([idx_1d22d(s1_time_weight.argsort()[-i], (source_data.shape[1], source_data.shape[2])) for i in range(s1_amont)])
+s2_regions.extend([idx_1d22d(s2_time_weight.argsort()[-i], (source_data2.shape[1], source_data2.shape[2])) for i in range(s2_amont)])
 if args.need_third == 1:
-    for i in range(source_data3.shape[1]):
-        for j in range(source_data3.shape[2]):
-            if s3_time_weight[i][j] > threshold:
-                x, y = idx_1d22d(count, (virtual_city.shape[1], virtual_city.shape[2]))
-                virtual_city[:, x, y] = source_data3[0: time_threshold, i, j]
-                virtual_poi[count, :] = source_poi3[idx_2d_2_1d((i, j), (source_data3.shape[1], source_data3.shape[2])), :]
-                count = count + 1
+    s3_regions.extend([idx_1d22d(s3_time_weight.argsort()[-i], (source_data3.shape[1], source_data3.shape[2])) for i in range(s3_amont)])
+
+
+log("s1 r = {} s2 r = {} s3 r = {}".format(str(len(s1_regions)), str(len(s2_regions)), str(len(s3_regions))))
+
+s1_regions_, s2_regions_, s3_regions_ = [], [], []
+np_3_3 = []
+np_3_3_poi = []
+np_3_3_coord = []
+for i in s1_regions:
+    if i in s1_regions_:
+        continue
+    b = list(yield_8_near((i[0], i[1]), (source_data.shape[1], source_data.shape[2])))
+    for m in b:
+        if m not in s1_regions_ and m in s1_regions:
+            s1_regions_.append(m)
+    count = 0
+    temp1 = np.zeros((time_threshold, 3, 3))
+    temp2 = np.zeros((3, 3, 14))
+    temp3 = np.zeros((3, 3, 3))
+    for p in range(3):
+        for q in range(3):
+            temp1[:, p, q] = source_data[0:time_threshold, b[count][0], b[count][1]]
+            temp2[p, q, :] = source_poi[idx_2d_2_1d((b[count][0], b[count][1]), (source_data.shape[1], source_data.shape[2])), :]
+            temp3[p, q, :] = np.array([b[count][0], b[count][1], 1])
+            count = count + 1
+    np_3_3.append(temp1)
+    np_3_3_poi.append(temp2)
+    np_3_3_coord.append(temp3)
+    if len(s1_regions_) == len(s1_regions):
+        break
+
+for i in s2_regions:
+    if i in s2_regions_:
+        continue
+    b = list(yield_8_near((i[0], i[1]), (source_data2.shape[1], source_data2.shape[2])))
+    for m in b:
+        if m not in s2_regions_ and m in s2_regions:
+            s2_regions_.append(m)
+    count = 0
+    temp1 = np.zeros((time_threshold, 3, 3))
+    temp2 = np.zeros((3, 3, 14))
+    temp3 = np.zeros((3, 3, 3))
+    for p in range(3):
+        for q in range(3):
+            temp1[:, p, q] = source_data2[0:time_threshold, b[count][0], b[count][1]]
+            temp2[p, q, :] = source_poi2[idx_2d_2_1d((b[count][0], b[count][1]), (source_data2.shape[1], source_data2.shape[2])), :]
+            temp3[p, q, :] = np.array([b[count][0], b[count][1], 2])
+            count = count + 1
+    np_3_3.append(temp1)
+    np_3_3_poi.append(temp2)
+    np_3_3_coord.append(temp3)
+    if len(s2_regions_) == len(s2_regions):
+        break
+
+for i in s3_regions:
+    if i in s3_regions_:
+        continue
+    b = list(yield_8_near((i[0], i[1]), (source_data3.shape[1], source_data3.shape[2])))
+    for m in b:
+        if m not in s3_regions_ and m in s3_regions:
+            s3_regions_.append(m)
+    count = 0
+    temp1 = np.zeros((time_threshold, 3, 3))
+    temp2 = np.zeros((3, 3, 14))
+    temp3 = np.zeros((3, 3, 3))
+    for p in range(3):
+        for q in range(3):
+            temp1[:, p, q] = source_data3[0:time_threshold, b[count][0], b[count][1]]
+            temp2[p, q, :] = source_poi3[idx_2d_2_1d((b[count][0], b[count][1]), (source_data3.shape[1], source_data3.shape[2])), :]
+            temp3[p, q, :] = np.array([b[count][0], b[count][1], 3])
+            count = count + 1
+    np_3_3.append(temp1)
+    np_3_3_poi.append(temp2)
+    np_3_3_coord.append(temp3)
+    if len(s3_regions_) == len(s3_regions):
+        break
+
+
+def is_integer(number):
+    if int(number) == number:
+        return True
+    else:
+        return False
+
+
+def is_3_product(number):
+    if int(number) % 3 == 0:
+        return True
+    else:
+        return False
+
+
+def crack(integer):
+    start = int(np.sqrt(integer))
+    factor = integer / start
+    while not (is_integer(start) and is_integer(factor) and is_3_product(factor) and is_3_product(start)):
+        start += 1
+        factor = integer / start
+    return int(factor), start
+
+
+shape = crack(len(np_3_3) * 9)
+log("virtual shape {}".format(str(shape)))
+virtual_city = np.zeros((time_threshold, shape[0], shape[1]))
+virtual_poi = np.zeros((shape[0], shape[1], 14))
+virtual_source_coord = np.zeros((shape[0], shape[1], 3))
+long_term_save["virtual_source_coord"] = virtual_source_coord
+virtual_road = np.zeros((shape[0] * shape[1], shape[0] * shape[1]))
+virtual_od = np.zeros((shape[0] * shape[1], shape[0] * shape[1]))
+count = 0
+for i in range(0, shape[0], 3):
+    for j in range(0, shape[1], 3):
+        virtual_city[:, i: i + 3, j: j + 3] = np_3_3[count]
+        virtual_poi[i: i + 3, j: j + 3, :] = np_3_3_poi[count]
+        virtual_source_coord[i: i + 3, j: j + 3, :] = np_3_3_coord[count]
+        count = count + 1
+for i in range(virtual_source_coord.shape[0] * virtual_source_coord.shape[1]):
+    for j in range(virtual_source_coord.shape[0] * virtual_source_coord.shape[1]):
+        m, n = idx_1d22d(i, (virtual_source_coord.shape[0], virtual_source_coord.shape[1]))
+        p, q = idx_1d22d(j, (virtual_source_coord.shape[0], virtual_source_coord.shape[1]))
+        if virtual_source_coord[m][n][2] == virtual_source_coord[p][q][2]:
+            od = None
+            road = None
+            shape = None
+            if virtual_source_coord[m][n][2] == 1:
+                od = source_od_adj
+                road = source_road_adj
+                shape = (source_data.shape[1], source_data.shape[2])
+            elif virtual_source_coord[m][n][2] == 2:
+                od = source_od_adj2
+                road = source_road_adj2
+                shape = (source_data2.shape[1], source_data2.shape[2])
+            elif virtual_source_coord[m][n][2] == 3:
+                od = source_od_adj3
+                road = source_road_adj3
+                shape = (source_data3.shape[1], source_data3.shape[2])
+            c = idx_2d_2_1d(
+                (virtual_source_coord[m][n][0],virtual_source_coord[m][n][1]
+                ), shape)
+            d = idx_2d_2_1d(
+                (virtual_source_coord[p][q][0],virtual_source_coord[p][q][1]
+                ), shape)
+            c = int(c)
+            d = int(d)
+            virtual_od[i][j] = od[c][d]
+            virtual_road[i][j] = road[c][d]
+for i in range(virtual_road.shape[0]):
+    virtual_road[i][i] = 1
 
 
 lng_virtual, lat_virtual = virtual_city.shape[1], virtual_city.shape[2]
@@ -183,8 +312,22 @@ virtual_norm_poi = np.array(virtual_transform.fit_transform(virtual_poi).todense
 virtual_poi_adj, virtual_poi_cos = build_poi_graph(virtual_norm_poi, args.topk)
 virtual_poi_adj = add_self_loop(virtual_poi_adj)
 virtual_prox_adj = add_self_loop(build_prox_graph(lng_virtual, lat_virtual))
-virtual_road_adj = source_road_adj
-virtual_s_adj, virtual_d_adj, virtual_od_adj = source_s_adj, source_d_adj, source_od_adj
+virtual_road_adj = virtual_road
+d_sim = np.dot(virtual_od, virtual_od.transpose())
+s_sim = np.dot(virtual_od.transpose(), virtual_od)
+d_norm = np.sqrt((virtual_od ** 2).sum(1))
+s_norm = np.sqrt((virtual_od ** 2).sum(0))
+d_sim /= (np.outer(d_norm, d_norm) + 1e-5)
+s_sim /= (np.outer(s_norm, s_norm) + 1e-5)
+s_adj = np.copy(s_sim)
+d_adj = np.copy(d_sim)
+n_nodes = s_adj.shape[0]
+for i in range(n_nodes):
+    s_adj[i, np.argsort(s_sim[i, :])[:-args.topk]] = 0
+    s_adj[np.argsort(s_sim[:, i])[:-args.topk], i] = 0
+    d_adj[i, np.argsort(d_sim[i, :])[:-args.topk]] = 0
+    d_adj[np.argsort(d_sim[:, i])[:-args.topk], i] = 0
+virtual_s_adj, virtual_d_adj, virtual_od_adj = s_adj, d_adj, virtual_od
 virtual_s_adj = add_self_loop(virtual_s_adj)
 virtual_d_adj = add_self_loop(virtual_d_adj)
 virtual_od_adj = add_self_loop(virtual_od_adj)

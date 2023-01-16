@@ -109,6 +109,9 @@ def params():
     parser.add_argument("--road_epoch", type=int, default=20)
     parser.add_argument("--threshold", type=float, default=0.2)
     parser.add_argument("--accuracy", type=float, default=0.2)
+    parser.add_argument("--s1_amont", type=int, default=200)
+    parser.add_argument("--s2_amont", type=int, default=200)
+    parser.add_argument("--s3_amont", type=int, default=200)
     args = parser.parse_args()
 
     if args.seed != -1:

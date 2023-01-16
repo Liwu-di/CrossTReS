@@ -595,3 +595,48 @@ def generate_road_loader(city_adjs: List[tuple], args):
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size)
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size)
     return train_loader, val_loader, test_loader
+
+
+def yield_8_near(i, ranges):
+    """
+    产生i的8邻域，i，ranges都是元组或者可下标访问的元素，
+    :param i:
+    :param ranges:
+    :return:
+    """
+    if i[0] - 1 >=0 and i[1] - 1 >= 0 and i[0] + 1 < ranges[0] and i[1] + 1 < ranges[1]:
+        for k in [-1, 0, 1]:
+            for p in [-1, 0, 1]:
+                yield i[0] + k, i[1] + p
+    elif i == (0, 0):
+        for k in [0, 1, 2]:
+            for p in [0, 1, 2]:
+                yield i[0] + k, i[1] + p
+    elif i == (ranges[0] - 1, 0):
+        for k in [-2, -1, 0]:
+            for p in [0, 1, 2]:
+                yield i[0] + k, i[1] + p
+    elif i == (0, ranges[1] - 1):
+        for k in [0, 1, 2]:
+            for p in [-2, -1, 0]:
+                yield i[0] + k, i[1] + p
+    elif i == (ranges[0] - 1, ranges[1] - 1):
+        for k in [-2, -1, 0]:
+            for p in [-2, -1, 0]:
+                yield i[0] + k, i[1] + p
+    elif i[0] == 0 and 0 < i[1] < ranges[1] - 1:
+        for k in [0, 1, 2]:
+            for p in [-1, 0, 1]:
+                yield i[0] + k, i[1] + p
+    elif 0 < i[0] < ranges[0] - 1 and i[1] == 0:
+        for k in [-1, 0, 1]:
+            for p in [0, 1, 2]:
+                yield i[0] + k, i[1] + p
+    elif i[0] == ranges[0] - 1 and 0 < i[1] < ranges[1] - 1:
+        for k in [-2, -1, 0]:
+            for p in [-1, 0, 1]:
+                yield i[0] + k, i[1] + p
+    elif 0 < i[0] < ranges[0] - 1 and i[1] == ranges[1] - 1:
+        for k in [-1, 0, 1]:
+            for p in [-2, -1, 0]:
+                yield i[0] + k, i[1] + p
