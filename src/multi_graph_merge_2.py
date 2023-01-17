@@ -1275,22 +1275,22 @@ if args.is_st_weight_static == 1:
     log(s1_time_t.shape, _, __)
     s2_time_t, _, __ = min_max_normalize(s2_time_t.sum(axis=2))
     log(s2_time_t.shape, _, __)
-time_weight = np.zeros((A_star.shape[1], A_star.shape[2]))
-s2_weight = [s2_time_t[i[0], i[1]] for i in include_8_nearist_2d]
-for i in range(source_data.shape[1]):
-    for j in range(source_data.shape[2]):
-        if i < source_data.shape[1] and j < source_data.shape[2]:
-            time_weight[i][j] = s1_time_t[i][j]
-count = 0
-for i in range(source_data.shape[1], A_star.shape[1]):
-    for j in range(A_star.shape[2]):
-        if count < len(s2_weight):
-            time_weight[i][j] = s2_weight[count]
-        else:
-            time_weight[i][j] = 0
-        count = count + 1
-time_weight = torch.from_numpy(time_weight)
-log()
+    time_weight = np.zeros((A_star.shape[1], A_star.shape[2]))
+    s2_weight = [s2_time_t[i[0], i[1]] for i in include_8_nearist_2d]
+    for i in range(source_data.shape[1]):
+        for j in range(source_data.shape[2]):
+            if i < source_data.shape[1] and j < source_data.shape[2]:
+                time_weight[i][j] = s1_time_t[i][j]
+    count = 0
+    for i in range(source_data.shape[1], A_star.shape[1]):
+        for j in range(A_star.shape[2]):
+            if count < len(s2_weight):
+                time_weight[i][j] = s2_weight[count]
+            else:
+                time_weight[i][j] = 0
+            count = count + 1
+    time_weight = torch.from_numpy(time_weight)
+    log()
 
 for ep in range(num_epochs):
     net.train()
