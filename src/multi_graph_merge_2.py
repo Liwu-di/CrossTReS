@@ -1372,7 +1372,12 @@ for ep in range(num_epochs):
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     # train network on source
     # 有了参数lambda rs，训练net网络
-    source_loss = train_epoch(net, A_star_loader, pred_optimizer, weights=source_weights_ma, mask=A_th_mask,
+    weight = None
+    if args.need_weight == 0:
+        weight = None
+    else:
+        weight = source_weights_ma
+    source_loss = train_epoch(net, A_star_loader, pred_optimizer, weights=weight, mask=A_th_mask,
                               num_iters=args.pretrain_iter)
     avg_source_loss = np.mean(source_loss)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
