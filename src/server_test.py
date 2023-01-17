@@ -40,10 +40,7 @@ p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
 long_term_save = {}
 args = params()
 long_term_save["args"] = args.__str__()
-if args.c != "default":
-    c = ast.literal_eval(args.c)
-    record = ResearchRecord(**c)
-    record_id = record.insert(__file__, get_timestamp(), args.__str__())
+
 p_bar.process(0, 1, 5)
 source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
 source_train_y, source_test_x, source_val_x, source_poi_adj, source_poi_adj2, dataname, target_train_x, \
