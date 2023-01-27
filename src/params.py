@@ -113,6 +113,7 @@ def params():
     parser.add_argument("--s2_amont", type=int, default=200)
     parser.add_argument("--s3_amont", type=int, default=200)
     parser.add_argument("--test_mode_path", type=str)
+    parser.add_argument("--use_linked_region", type=int, default=1, help="0使用8邻域构建，1使用8-连通域构建")
     args = parser.parse_args()
 
     if args.seed != -1:
