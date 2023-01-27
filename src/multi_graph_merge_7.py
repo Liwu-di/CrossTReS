@@ -472,7 +472,7 @@ elif args.use_linked_region == 1:
             width_min = i
             sum_min = height + width
     height, rectangles = phspprg(width_min, boxes)
-    visualize(width_min, height, rectangles)
+    #visualize(width_min, height, rectangles)
     log("The width for min height is {}".format(str(width_min)))
     log("The height is: {}".format(height))
     width = int(width_min)
@@ -542,11 +542,11 @@ elif args.use_linked_region == 1:
                     test_mask[i.x + p, i.y + q] = 1
 
     log()
-    import seaborn as sns
-
-    fig = sns.heatmap(test_mask)
-    heatmap = fig.get_figure()
-    heatmap.show()
+    # import seaborn as sns
+    #
+    # fig = sns.heatmap(test_mask)
+    # heatmap = fig.get_figure()
+    # heatmap.show()
 
     for i in range(virtual_source_coord.shape[1] * virtual_source_coord.shape[2]):
         for j in range(virtual_source_coord.shape[1] * virtual_source_coord.shape[2]):
