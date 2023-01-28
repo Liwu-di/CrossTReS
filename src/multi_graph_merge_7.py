@@ -431,11 +431,11 @@ elif args.use_linked_region == 1:
         return boxes, coord_range
 
 
-    boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False)
-    boxes2, linked_regions_range2 = calculate_linked_regions(s2_time_weight, False)
+    boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, args.s1_rate)
+    boxes2, linked_regions_range2 = calculate_linked_regions(s2_time_weight, False, args.s2_rate)
     boxes3, linked_regions_range3 = [], []
     if args.need_third == 1:
-        boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, 0.45)
+        boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, args.s3_rate)
     log(boxes1, boxes2, boxes3)
     log(linked_regions_range1, linked_regions_range2, linked_regions_range3)
 
