@@ -106,6 +106,28 @@ if args.need_third == 1:
     for i in range(len(source_graphs3)):
         source_graphs3[i] = source_graphs3[i].to(device)
     source_edges3, source_edge_labels3 = graphs_to_edge_labels(source_graphs3)
+
+if args.need_geo_weight == 1:
+    log("============================")
+    log("=======use geo score========")
+    log("============================")
+
+    c1shape = source_data.shape[1], source_data.shape[2], 14
+    c2shape = source_data2.shape[1], source_data2.shape[2], 14
+    ctshape = target_data.shape[1], target_data.shape[2], 14
+    spoi1 = source_norm_poi.reshape(c1shape)
+    spoi2 = source_norm_poi2.reshape(c2shape)
+    tpoi = target_norm_poi.reshape(ctshape)
+    geo_weight1 = calculateGeoSimilarity(spoi1, source_road_adj, source_s_adj, source_t_adj, mask_source, tpoi,
+                                         target_road_adj, target_s_adj, target_t_adj, mask_target)
+    geo_weight2 = calculateGeoSimilarity(spoi2, source_road_adj2, source_s_adj2, source_t_adj2, mask_source2, tpoi,
+                                         target_road_adj, target_s_adj, target_t_adj, mask_target)
+    if args.need_third == 1:
+        c3shape = source_data3.shape[1], source_data3.shape[2], 14
+        spoi3 = source_norm_poi3.reshape(c3shape)
+        geo_weight3 = calculateGeoSimilarity(spoi3, source_road_adj3, source_s_adj3, source_t_adj3, mask_source3, tpoi,
+                                             target_road_adj, target_s_adj, target_t_adj, mask_target)
+
 virtual_city = None
 virtual_poi = None
 virtual_road = None
@@ -135,6 +157,11 @@ if args.use_linked_region == 0:
         s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
         s3_time_weight = s3_time_weight.reshape(-1)
 
+    if args.need_geo_weight == 1:
+        s1_time_weight = s1_time_weight + geo_weight1
+        s2_time_weight = s2_time_weight + geo_weight2
+        if args.need_third == 1:
+            s3_time_weight = s3_time_weight + geo_weight3
     threshold = args.threshold
     s1_amont = args.s1_amont
     s2_amont = args.s2_amont
@@ -313,6 +340,11 @@ elif args.use_linked_region == 1:
         s3_time_weight = np.load(path.format(scity3, tcity, datatype, dataname, args.data_amount)).sum(2)
         s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
 
+    if args.need_geo_weight == 1:
+        s1_time_weight = s1_time_weight + geo_weight1
+        s2_time_weight = s2_time_weight + geo_weight2
+        if args.need_third == 1:
+            s3_time_weight = s3_time_weight + geo_weight3
     threshold = args.threshold
     s1_amont = args.s1_amont
     s2_amont = args.s2_amont

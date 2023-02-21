@@ -26,6 +26,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
 from utils import *
+from dtaidistance import dtw
 
 
 # This function is a preparation for the edge type discriminator
@@ -648,3 +649,48 @@ def save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir):
     torch.save(fusion, root_dir + "/fusion.pth")
     torch.save(scoring, root_dir + "/scoring.pth")
     torch.save(edge_disc, root_dir + "/edge_disc.pth")
+
+
+def processGeo(spoi, sroad, s_s, s_t):
+    scity_width = spoi.shape[0]
+    scity_height = spoi.shape[1]
+    s_geo_features = np.zeros((scity_width, scity_height, 41))
+    for i in range(scity_width):
+        for j in range(scity_height):
+            temps, tempt, tempr = np.zeros(9), np.zeros(9), np.zeros(9)
+            coords = list(yield_8_near((i, j), (scity_width, scity_height)))
+            count = 0
+            for p in coords:
+                temps[count] = s_s[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
+                scity_width, scity_height))]
+                tempt[count] = s_t[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
+                scity_width, scity_height))]
+                tempr[count] = sroad[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
+                scity_width, scity_height))]
+                count = count + 1
+            s_geo_features[i, j, :] = np.concatenate((spoi[i, j, :], temps, tempt, tempr))
+    return s_geo_features
+
+
+def calculateGeoSimilarity(spoi, sroad, s_s, s_t, mask_s, tpoi, troad, t_s, t_t, mask_t):
+
+    scity_width = spoi.shape[0]
+    scity_height = spoi.shape[1]
+    tcity_width = tpoi.shape[0]
+    tcity_height = tpoi.shape[1]
+
+    s_geo_features = processGeo(spoi, sroad, s_s, s_t)
+    t_geo_features = processGeo(tpoi, troad, t_s, t_t)
+
+    sim = np.zeros((scity_width, scity_height))
+    bar = process_bar(final_prompt="DTW geo score finished", unit="region")
+    for i in range(scity_width):
+        for j in range(scity_height):
+            if mask_s[i][j]:
+                for p in range(tcity_width):
+                    for q in range(tcity_height):
+                        if mask_t[p][q]:
+                            sim[i][j] = sim[i][j] + dtw.distance_fast(s_geo_features[i, j, :],
+                                                                      t_geo_features[p, q, :])
+
+    return min_max_normalize(sim)[0]
