@@ -99,12 +99,14 @@ log("%d valid regions in source" % np.sum(mask_source))
 source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
 p_bar.process(3, 1, 5)
 lag = [-6, -5, -4, -3, -2, -1]
+threshold = args.cut_data
 source_data, smax, smin = min_max_normalize(source_data)
 target_data, max_val, min_val = min_max_normalize(target_data)
+source_data = source_data[0: threshold, :, :]
 
 # [(5898, 6, 20, 23), (5898, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23), (1440, 6, 20, 23), (1440, 1, 20, 23)]
 # 第一维是数量，第二维是每条数据中的数量
-source_train_x, source_train_y, source_val_x, source_val_y, source_test_x, source_test_y = split_x_y(source_data, lag)
+source_train_x, source_train_y, source_val_x, source_val_y, source_test_x, source_test_y = split_x_y(source_data, lag, val_num=int(source_data.shape[0] / 6), test_num=int(source_data.shape[0] / 6))
 # we concatenate all source data
 # (8778, 6, 20, 23)
 source_x = np.concatenate([source_train_x, source_val_x, source_test_x], axis=0)
