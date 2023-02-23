@@ -11,6 +11,7 @@ import argparse
 from collections import OrderedDict
 
 import numpy as np
+import scipy.stats
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -27,6 +28,8 @@ from torch.utils.tensorboard import SummaryWriter
 from model import *
 from utils import *
 from dtaidistance import dtw
+from scipy.stats import wasserstein_distance
+from scipy.spatial import distance
 
 
 # This function is a preparation for the edge type discriminator
@@ -399,10 +402,10 @@ def load_process_data(args, p_bar):
         target_train_x = target_train_x[-args.data_amount * 24:, :, :, :]
         target_train_y = target_train_y[-args.data_amount * 24:, :, :, :]
     if args.alin_month == 1:
-        source_x = source_x[-30*6*24:, :, :, :]
-        source_y = source_y[-30*6*24:, :, :, :]
-        source_x2 = source_x2[-30*6*24:, :, :, :]
-        source_y2 = source_y2[-30*6*24:, :, :, :]
+        source_x = source_x[-30 * 6 * 24:, :, :, :]
+        source_y = source_y[-30 * 6 * 24:, :, :, :]
+        source_x2 = source_x2[-30 * 6 * 24:, :, :, :]
+        source_y2 = source_y2[-30 * 6 * 24:, :, :, :]
     log("Source split to: x %s, y %s" % (str(source_x.shape), str(source_y.shape)))
     # log("val_x %s, val_y %s" % (str(source_val_x.shape), str(source_val_y.shape)))
     # log("test_x %s, test_y %s" % (str(source_test_x.shape), str(source_test_y.shape)))
@@ -508,7 +511,6 @@ def load_process_data(args, p_bar):
     target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
     p_bar.process(4, 1, 5)
 
-
     return source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
            source_train_y, source_test_x, source_val_x, source_poi_adj, source_poi_adj2, dataname, target_train_x, \
            th_mask_source2, th_mask_source, target_test_loader, target_poi, target_od_adj, \
@@ -522,11 +524,12 @@ def load_process_data(args, p_bar):
            source_test_y2, source_y, source_dataset2, target_road_adj, source_test_loader, target_poi_adj, \
            smax, start_time, target_test_y, lng_target, source_test_loader2, \
            source_prox_adj2, target_data, source_x2, target_train_dataset, source_test_dataset, source_test_x2, source_od_adj, target_val_loader, smin, target_poi_cos, target_edge_labels, \
-           source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2 ,source_emb_label, \
+           source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2, source_emb_label, \
            target_norm_poi, source_norm_poi, source_train_x, datatype, source_val_y, mask_target, \
            source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
            source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
            target_train_y, th_mask_target, device, p_bar
+
 
 class Road(nn.Module):
 
@@ -586,9 +589,10 @@ def generate_road_loader(city_adjs: List[tuple], args):
     train_y = y[0: train_num, :]
     val_x = x[train_num: train_num + val_num, :]
     val_y = y[train_num: train_num + val_num, :]
-    test_x = x[train_num + val_num: , :]
-    test_y = y[train_num + val_num: , :]
-    train_x, train_y, val_x, val_y, test_x, test_y = (torch.from_numpy(i) for i in [train_x, train_y, val_x, val_y, test_x, test_y])
+    test_x = x[train_num + val_num:, :]
+    test_y = y[train_num + val_num:, :]
+    train_x, train_y, val_x, val_y, test_x, test_y = (torch.from_numpy(i) for i in
+                                                      [train_x, train_y, val_x, val_y, test_x, test_y])
     train_dataset = TensorDataset(train_x, train_y)
     val_dataset = TensorDataset(val_x, val_y)
     test_dataset = TensorDataset(test_x, test_y)
@@ -605,7 +609,7 @@ def yield_8_near(i, ranges):
     :param ranges:
     :return:
     """
-    if i[0] - 1 >=0 and i[1] - 1 >= 0 and i[0] + 1 < ranges[0] and i[1] + 1 < ranges[1]:
+    if i[0] - 1 >= 0 and i[1] - 1 >= 0 and i[0] + 1 < ranges[0] and i[1] + 1 < ranges[1]:
         for k in [-1, 0, 1]:
             for p in [-1, 0, 1]:
                 yield i[0] + k, i[1] + p
@@ -642,6 +646,7 @@ def yield_8_near(i, ranges):
             for p in [-2, -1, 0]:
                 yield i[0] + k, i[1] + p
 
+
 def save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir):
     log(" ============== save model ================ ")
     torch.save(net, root_dir + "/net.pth")
@@ -662,35 +667,61 @@ def processGeo(spoi, sroad, s_s, s_t):
             count = 0
             for p in coords:
                 temps[count] = s_s[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
-                scity_width, scity_height))]
+                    scity_width, scity_height))]
                 tempt[count] = s_t[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
-                scity_width, scity_height))]
+                    scity_width, scity_height))]
                 tempr[count] = sroad[idx_2d_2_1d((i, j), (scity_width, scity_height)), idx_2d_2_1d((p[0], p[1]), (
-                scity_width, scity_height))]
+                    scity_width, scity_height))]
                 count = count + 1
             s_geo_features[i, j, :] = np.concatenate((spoi[i, j, :], temps, tempt, tempr))
     return s_geo_features
 
 
-def calculateGeoSimilarity(spoi, sroad, s_s, s_t, mask_s, tpoi, troad, t_s, t_t, mask_t):
+def JS_divergence(p, q):
+    M = (p + q) / 2
+    return 0.5 * scipy.stats.entropy(p, M) + 0.5 * scipy.stats.entropy(q, M)
 
+
+def calculateGeoSimilarity(spoi, sroad, s_s, s_t, mask_s, tpoi, troad, t_s, t_t, mask_t, dis_method="MMD"):
     scity_width = spoi.shape[0]
     scity_height = spoi.shape[1]
     tcity_width = tpoi.shape[0]
     tcity_height = tpoi.shape[1]
-
+    mmd = None
+    if dis_method == "MMD":
+        mmd = MMD_loss()
     s_geo_features = processGeo(spoi, sroad, s_s, s_t)
     t_geo_features = processGeo(tpoi, troad, t_s, t_t)
 
     sim = np.zeros((scity_width, scity_height))
-    bar = process_bar(final_prompt="DTW geo score finished", unit="region")
     for i in range(scity_width):
         for j in range(scity_height):
             if mask_s[i][j]:
                 for p in range(tcity_width):
                     for q in range(tcity_height):
                         if mask_t[p][q]:
-                            sim[i][j] = sim[i][j] + dtw.distance_fast(s_geo_features[i, j, :],
-                                                                      t_geo_features[p, q, :])
+                            if dis_method == "DTW":
+                                sim[i][j] = sim[i][j] + dtw.distance_fast(s_geo_features[i, j, :],
+                                                                          t_geo_features[p, q, :])
+                            elif dis_method == "MMD":
+                                sim[i][j] = sim[i][j] + mmd.forward(
+                                    torch.unsqueeze(torch.from_numpy(s_geo_features[i, j, :]), dim=0),
+                                    torch.unsqueeze(torch.from_numpy(t_geo_features[p, q, :]), dim=0))
+                            elif dis_method == "KL":
+                                sim[i][j] = sim[i][j] + scipy.stats.entropy(
+                                    scipy.special.softmax(s_geo_features[i, j, :]),
+                                    scipy.special.softmax(t_geo_features[p, q, :]))
+                            elif dis_method == "wasserstein":
+                                sim[i][j] = sim[i][j] + wasserstein_distance(s_geo_features[i, j, :],
+                                                                             t_geo_features[p, q, :])
+                            elif dis_method == "JS":
+                                sim[i][j] = sim[i][j] + JS_divergence(
+                                    scipy.special.softmax(s_geo_features[i, j, :]),
+                                    scipy.special.softmax(t_geo_features[p, q, :]))
+    sim = min_max_normalize(sim)[0]
+    if dis_method in ["JS", "KL"]:
+        for i in range(sim.shape[0]):
+            for j in range(sim.shape[1]):
+                sim[i][j] = 1.0 / sim[i][j] if sim[i][j] - 0 > 0.00001 else 0
 
     return min_max_normalize(sim)[0]

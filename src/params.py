@@ -118,6 +118,8 @@ def params():
     parser.add_argument("--test_mode_path", type=str)
     parser.add_argument("--use_linked_region", type=int, default=1, help="0使用8邻域构建，1使用8-连通域构建")
     parser.add_argument("--need_geo_weight", type=int, default=0, help="1使用geo weight")
+    parser.add_argument("--geo_dis", type=str, default="MMD", help="within [MMD, KL, DTW, wasserstein, JS]")
+    parser.add_argument("--need_remark", type=int, default=0)
     args = parser.parse_args()
 
     if args.seed != -1:
