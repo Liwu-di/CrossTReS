@@ -624,6 +624,298 @@ elif args.use_linked_region == 1:
     for i in range(virtual_road.shape[0]):
         virtual_road[i][i] = 1
     log()
+elif args.use_linked_region == 2:
+    path = "./time_weight/time_weight{}_{}_{}_{}_{}.npy"
+    s1_time_weight = np.load(path.format(scity, tcity, datatype, dataname, args.data_amount)).sum(2)
+    s1_time_weight, _, _ = min_max_normalize(s1_time_weight)
+
+    s2_time_weight = np.load(path.format(scity2, tcity, datatype, dataname, args.data_amount)).sum(2)
+    s2_time_weight, _, _ = min_max_normalize(s2_time_weight)
+
+    s1_regions = []
+    s2_regions = []
+    s3_regions = []
+
+    if args.need_third == 1:
+        s3_time_weight = np.load(path.format(scity3, tcity, datatype, dataname, args.data_amount)).sum(2)
+        s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
+
+    if args.need_geo_weight == 1:
+        s1_time_weight = s1_time_weight + geo_weight1
+        s2_time_weight = s2_time_weight + geo_weight2
+        if args.need_third == 1:
+            s3_time_weight = s3_time_weight + geo_weight3
+    threshold = args.threshold
+    s1_amont = args.s1_amont
+    s2_amont = args.s2_amont
+    s3_amont = args.s3_amont
+    time_threshold = args.cut_data
+
+
+    def dfs(maps, i, j):
+        """
+
+        @param maps: two dimension array like
+        @param i: coord
+        @param j: coord
+        """
+        if i < 0 or i >= maps.shape[0] or j < 0 or j >= maps.shape[1] or maps[i][j] == False:
+            return []
+        maps[i][j] = False
+        coord_list = []
+        coord_list.append((i, j))
+        for p in [-1, 0, 1]:
+            for q in [-1, 0, 1]:
+                if p == q:
+                    continue
+                coord_list.extend(dfs(maps, i + p, j + q))
+        return coord_list
+
+
+    def calculate_linked_regions(t1, need_graph=False, threshold=0.2):
+        mask_t1 = t1 > threshold
+        if need_graph:
+            import seaborn as sns
+            fig = sns.heatmap(mask_t1)
+            heatmap = fig.get_figure()
+            heatmap.show()
+        # =======================
+        # 求连通域
+        # =======================
+        city_regions = []
+        count = 0
+        for i in range(mask_t1.shape[0]):
+            for j in range(mask_t1.shape[1]):
+
+                if mask_t1[i][j]:
+                    coord_list = []
+                    count += 1
+                    coord_list.extend(dfs(mask_t1, i, j))
+                    city_regions.append(coord_list)
+        log("连通域的数量：{}".format(str(count)))
+        linked_regions = np.zeros(mask_t1.shape)
+        for i, x in enumerate(city_regions):
+            for j in x:
+                linked_regions[j[0]][j[1]] = i + 1
+        if need_graph:
+            fig = sns.heatmap(linked_regions, annot=True)
+            heatmap = fig.get_figure()
+            heatmap.show()
+        # ==================
+        # 排除重复的内部区域
+        # ==================
+        linked_regions_range = []
+        area_max = (0, 0, 0, 0, 0)
+        for i in city_regions:
+            x, y = [], []
+            for j in i:
+                x.append(j[0])
+                y.append(j[1])
+            x_max = np.max(x)
+            x_min = np.min(x)
+            y_max = np.max(y)
+            y_min = np.min(y)
+            a = abs(x_max - x_min) * abs(y_max - y_min)
+            if a > area_max[4]:
+                area_max = [x_min, x_max, y_min, y_max, a, True]
+            linked_regions_range.append([x_min, x_max, y_min, y_max, a, True])
+
+        for i in linked_regions_range:
+            if i[0] >= area_max[0] and i[1] <= area_max[1] \
+                    and i[2] >= area_max[2] and i[3] <= area_max[3] and i[4] <= area_max[4]:
+                if i == area_max:
+                    continue
+                i[5] = False
+
+        # ================
+        # 求组件范围
+        # ================
+        linked_regions = np.zeros(mask_t1.shape)
+        ccc = 1
+        for i in linked_regions_range:
+            if not i[5]:
+                continue
+            for p in range(mask_t1.shape[0]):
+                for q in range(mask_t1.shape[1]):
+                    if i[0] - 1 <= p <= i[1] + 1 and i[2] - 1 <= q <= i[3] + 1 and i[5] == True:
+                        linked_regions[p][q] = ccc
+            ccc += 1
+        log("排除包含关系之后连通域数量：{}".format(str(ccc - 1)))
+        if need_graph:
+            fig = sns.heatmap(linked_regions, annot=True)
+            heatmap = fig.get_figure()
+            heatmap.show()
+        # =======================
+        # 组合起来
+        # =======================
+        boxes = []
+        coord_range = []
+        for i in linked_regions_range:
+            if i[5]:
+                coord_range.append([i[0] - 1 if i[0] - 1 > 0 else 0,
+                                    i[1] + 1 if i[1] + 1 < t1.shape[0] else t1.shape[0] - 1,
+                                    i[2] - 1 if i[2] - 1 > 0 else 0,
+                                    i[3] + 1 if i[3] + 1 < t1.shape[1] else t1.shape[1] - 1,
+                                    (i[1] - i[0] + 3) * (i[3] - i[2] + 3),
+                                    True])
+                boxes.append([abs(coord_range[-1][1] - coord_range[-1][0]) + 1,
+                              abs(coord_range[-1][3] - coord_range[-1][2]) + 1])
+        return boxes, coord_range
+
+
+    boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, args.s1_rate)
+    boxes2, linked_regions_range2 = calculate_linked_regions(s2_time_weight, False, args.s2_rate)
+    boxes3, linked_regions_range3 = [], []
+    if args.need_third == 1:
+        boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, args.s3_rate)
+    log(boxes1, boxes2, boxes3)
+    log(linked_regions_range1, linked_regions_range2, linked_regions_range3)
+
+    from ph import phspprg, phsppog
+    from visualize import visualize
+    from collections import namedtuple
+
+    Rectangle = namedtuple('Rectangle', ['x', 'y', 'w', 'h'])
+
+    boxes = []
+    boxes.extend(boxes1)
+    boxes.extend(boxes2)
+    if args.need_third == 1:
+        boxes.extend(boxes3)
+    sum_area = 0
+    for i in [linked_regions_range1, linked_regions_range2, linked_regions_range3]:
+        for j in i:
+            sum_area += j[4]
+    sum_min = 999999999
+    width_min = 0
+
+
+    def verify(width, height, rectangles):
+        for i in rectangles:
+            if i.x + i.w > width or i.y + i.h > height:
+                return False
+        return True
+
+
+    for i in range(10, (int(math.sqrt(sum_area)) + 1) * 2, 1):
+        width = i
+        height, rectangles = phspprg(width, boxes)
+        if height + width < sum_min and verify(width, height, rectangles):
+            width_min = i
+            sum_min = height + width
+    height, rectangles = phspprg(width_min, boxes)
+    # visualize(width_min, height, rectangles)
+    log("The width for min height is {}".format(str(width_min)))
+    log("The height is: {}".format(height))
+    width = int(width_min)
+    height = int(height)
+
+    virtual_city = np.zeros((time_threshold, width, height))
+    virtual_source_coord = np.zeros((3, width, height))
+    virtual_poi = np.zeros((width, height, 14))
+    virtual_road = np.zeros((width * height, width * height))
+    virtual_od = np.zeros((width * height, width * height))
+    city_regions_expand = []
+    for i in linked_regions_range1:
+        city_regions_expand.append([i[0], i[1], i[2], i[3], i[4], abs(i[1] - i[0]) + 1, abs(i[3] - i[2]) + 1, 1, False])
+    for i in linked_regions_range2:
+        city_regions_expand.append([i[0], i[1], i[2], i[3], i[4], abs(i[1] - i[0]) + 1, abs(i[3] - i[2]) + 1, 2, False])
+    for i in linked_regions_range3:
+        city_regions_expand.append([i[0], i[1], i[2], i[3], i[4], abs(i[1] - i[0]) + 1, abs(i[3] - i[2]) + 1, 3, False])
+
+
+    def find_city_regions(w, h):
+        for i in city_regions_expand:
+            if not i[-1] and i[5] == w and i[6] == h:
+                i[-1] = True
+                return i[-2], i[0], i[1], i[2], i[3]
+        return None
+
+
+    test_mask = np.zeros((width, height))
+    for i in rectangles:
+        res = None
+        res = find_city_regions(int(i.w), int(i.h))
+        across_flag = False
+        if res is None:
+            """
+            拼接的时候可能会旋转
+            """
+            res = find_city_regions(int(i.h), int(i.w))
+            across_flag = True
+        data = None
+        data_poi = None
+        log(i)
+        log(res)
+        log(across_flag)
+        if res[0] == 1:
+            data = source_data
+            data_poi = source_poi
+        elif res[0] == 2:
+            data = source_data2
+            data_poi = source_poi2
+        elif res[0] == 3:
+            data = source_data3
+            data_poi = source_poi3
+
+        for p in range(int(i.w)):
+            for q in range(int(i.h)):
+                if across_flag:
+                    virtual_city[:, i.x + p, i.y + q] = data[0: time_threshold, res[1] + q, res[3] + p]
+                    virtual_source_coord[:, i.x + p, i.y + q] = np.array([res[1] + q, res[3] + p, res[0]])
+                    data_poi = data_poi.reshape((data.shape[1], data.shape[2], 14))
+                    virtual_poi[i.x + p, i.y + q, :] = data_poi[res[1] + q, res[3] + p, :]
+                    test_mask[i.x + p, i.y + q] = 1
+                else:
+                    virtual_city[:, i.x + p, i.y + q] = data[0: time_threshold, res[1] + p, res[3] + q]
+                    virtual_source_coord[:, i.x + p, i.y + q] = np.array([res[1] + p, res[3] + q, res[0]])
+                    data_poi = data_poi.reshape((data.shape[1], data.shape[2], 14))
+                    virtual_poi[i.x + p, i.y + q, :] = data_poi[res[1] + p, res[3] + q, :]
+                    test_mask[i.x + p, i.y + q] = 1
+
+    log()
+    # import seaborn as sns
+    #
+    # fig = sns.heatmap(test_mask)
+    # heatmap = fig.get_figure()
+    # heatmap.show()
+
+    for i in range(virtual_source_coord.shape[1] * virtual_source_coord.shape[2]):
+        for j in range(virtual_source_coord.shape[1] * virtual_source_coord.shape[2]):
+            m, n = idx_1d22d(i, (virtual_source_coord.shape[1], virtual_source_coord.shape[2]))
+            p, q = idx_1d22d(j, (virtual_source_coord.shape[1], virtual_source_coord.shape[2]))
+            if virtual_source_coord[2][m][n] == virtual_source_coord[2][p][q]:
+                od = None
+                road = None
+                shape = None
+                if virtual_source_coord[2][m][n] == 1:
+                    od = source_od_adj
+                    road = source_road_adj
+                    shape = (source_data.shape[1], source_data.shape[2])
+                elif virtual_source_coord[2][m][n] == 2:
+                    od = source_od_adj2
+                    road = source_road_adj2
+                    shape = (source_data2.shape[1], source_data2.shape[2])
+                elif virtual_source_coord[2][m][n] == 3:
+                    od = source_od_adj3
+                    road = source_road_adj3
+                    shape = (source_data3.shape[1], source_data3.shape[2])
+                else:
+                    continue
+                c = idx_2d_2_1d(
+                    (virtual_source_coord[0][m][n], virtual_source_coord[1][m][n]
+                     ), shape)
+                d = idx_2d_2_1d(
+                    (virtual_source_coord[0][p][q], virtual_source_coord[1][p][q]
+                     ), shape)
+                c = int(c)
+                d = int(d)
+                # log("m, n, p, q, c, d", " ", m, n, p, q, c, d)
+                virtual_od[i][j] = od[c][d]
+                virtual_road[i][j] = road[c][d]
+    for i in range(virtual_road.shape[0]):
+        virtual_road[i][i] = 1
+    log()
 long_term_save["virtual_source_coord"] = virtual_source_coord
 long_term_save["virtual_city"] = virtual_city
 long_term_save["virtual_poi"] = virtual_poi
@@ -1428,7 +1720,7 @@ if args.c != "default":
                       (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)),
                       remark="{}C {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.scity,
                                                                args.scity2,
-                                                               args.scity3 if args.need_third == 0 else "", args.tcity,
+                                                               args.scity3 if args.need_third == 1 else "", args.tcity,
                                                                str(args.data_amount), args.dataname, args.datatype))
     else:
         record.update(record_id, get_timestamp(),
