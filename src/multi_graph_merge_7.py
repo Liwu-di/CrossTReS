@@ -374,7 +374,7 @@ elif args.use_linked_region == 1:
         coord_list.append((i, j))
         for p in [-1, 0, 1]:
             for q in [-1, 0, 1]:
-                if p == q:
+                if p == q and p == 0:
                     continue
                 coord_list.extend(dfs(maps, i + p, j + q))
         return coord_list
@@ -670,7 +670,7 @@ elif args.use_linked_region == 2:
         coord_list.append((i, j))
         for p in [-1, 0, 1]:
             for q in [-1, 0, 1]:
-                if p == q:
+                if p == q and p == 0:
                     continue
                 coord_list.extend(dfs(maps, i + p, j + q))
         return coord_list
@@ -767,11 +767,11 @@ elif args.use_linked_region == 2:
         return boxes, coord_range
 
 
-    boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, 0.5)
-    boxes2, linked_regions_range2 = calculate_linked_regions(s2_time_weight, False, 0.5)
+    boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, args.s1_rate)
+    boxes2, linked_regions_range2 = calculate_linked_regions(s2_time_weight, False, args.s2_rate)
     boxes3, linked_regions_range3 = [], []
     if args.need_third == 1:
-        boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, 0.5)
+        boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, args.s3_rate)
     boxes1_expand, boxes2_expand, boxes3_expand = [[ii[0], ii[1]] for ii in boxes1], [[ii[0], ii[1]] for ii in
                                                                                       boxes2], [[ii[0], ii[1]] for ii in
                                                                                                 boxes3]
