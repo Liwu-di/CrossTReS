@@ -460,11 +460,10 @@ elif args.use_linked_region == 1:
         coord_range = []
         for i in linked_regions_range:
             if i[5]:
-                coord_range.append([i[0] - 1 if i[0] - 1 > 0 else 0,
-                                    i[1] + 1 if i[1] + 1 < t1.shape[0] else t1.shape[0] - 1,
-                                    i[2] - 1 if i[2] - 1 > 0 else 0,
-                                    i[3] + 1 if i[3] + 1 < t1.shape[1] else t1.shape[1] - 1,
-                                    (i[1] - i[0] + 3) * (i[3] - i[2] + 3),
+                a, b, c, d = i[0] - 1 if i[0] - 1 > 0 else 0, i[1] + 1 if i[1] + 1 < t1.shape[0] else t1.shape[0] - 1, \
+                             i[2] - 1 if i[2] - 1 > 0 else 0, i[3] + 1 if i[3] + 1 < t1.shape[1] else t1.shape[1] - 1
+                coord_range.append([a, b, c, d,
+                                    (b - a + 1) * (d - c + 1),
                                     True])
                 boxes.append([abs(coord_range[-1][1] - coord_range[-1][0]) + 1,
                               abs(coord_range[-1][3] - coord_range[-1][2]) + 1])
