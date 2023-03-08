@@ -120,6 +120,8 @@ def params():
     parser.add_argument("--need_geo_weight", type=int, default=0, help="1使用geo weight")
     parser.add_argument("--geo_dis", type=str, default="MMD", help="within [MMD, KL, DTW, wasserstein, JS]")
     parser.add_argument("--need_remark", type=int, default=0)
+    parser.add_argument("--geo_rate", type=float, default=1.0, help="rate of geo")
+    parser.add_argument("--time_rate", type=float, default=1.0, help="rate of time")
     args = parser.parse_args()
 
     if args.seed != -1:

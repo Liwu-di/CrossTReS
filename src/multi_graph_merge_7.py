@@ -159,10 +159,10 @@ if args.use_linked_region == 0:
         s3_time_weight = s3_time_weight.reshape(-1)
 
     if args.need_geo_weight == 1:
-        s1_time_weight = s1_time_weight + geo_weight1
-        s2_time_weight = s2_time_weight + geo_weight2
+        s1_time_weight = args.time_rate * s1_time_weight + args.geo_rate * geo_weight1
+        s2_time_weight = args.time_rate * s2_time_weight + args.geo_rate * geo_weight2
         if args.need_third == 1:
-            s3_time_weight = s3_time_weight + geo_weight3
+            s3_time_weight = args.time_rate * s3_time_weight + args.geo_rate * geo_weight3
     threshold = args.threshold
     s1_amont = args.s1_amont
     s2_amont = args.s2_amont
@@ -349,10 +349,10 @@ elif args.use_linked_region == 1:
         s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
 
     if args.need_geo_weight == 1:
-        s1_time_weight = s1_time_weight + geo_weight1
-        s2_time_weight = s2_time_weight + geo_weight2
+        s1_time_weight = args.time_rate * s1_time_weight + args.geo_rate * geo_weight1
+        s2_time_weight = args.time_rate * s2_time_weight + args.geo_rate * geo_weight2
         if args.need_third == 1:
-            s3_time_weight = s3_time_weight + geo_weight3
+            s3_time_weight = args.time_rate * s3_time_weight + args.geo_rate * geo_weight3
     threshold = args.threshold
     s1_amont = args.s1_amont
     s2_amont = args.s2_amont
@@ -644,10 +644,10 @@ elif args.use_linked_region == 2:
         s3_time_weight, _, _ = min_max_normalize(s3_time_weight)
 
     if args.need_geo_weight == 1:
-        s1_time_weight = s1_time_weight + geo_weight1
-        s2_time_weight = s2_time_weight + geo_weight2
+        s1_time_weight = args.time_rate * s1_time_weight + args.geo_rate * geo_weight1
+        s2_time_weight = args.time_rate * s2_time_weight + args.geo_rate * geo_weight2
         if args.need_third == 1:
-            s3_time_weight = s3_time_weight + geo_weight3
+            s3_time_weight = args.time_rate * s3_time_weight + args.geo_rate * geo_weight3
     threshold = args.threshold
     s1_amont = args.s1_amont
     s2_amont = args.s2_amont
