@@ -30,30 +30,35 @@ from params import *
 from utils import *
 from PaperCrawlerUtil.research_util import *
 
-
 basic_config(logs_style=LOG_STYLE_ALL)
-p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
-p_bar.process(0, 1, 5)
 args = params()
-source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
-source_train_y, source_test_x, source_val_x, source_poi_adj, source_poi_adj2, dataname, target_train_x, \
-th_mask_source2, th_mask_source, target_test_loader, target_poi, target_od_adj, \
-source_dataset, mask_source, target_graphs, target_val_dataset, max_val, scity2, smin2, \
-target_emb_label, tcity, source_road_adj2, gpu_available, source_edges2, \
-mask_source2, source_poi_cos, source_data, source_graphs, lng_source, source_road_adj, target_d_adj, \
-target_val_x, source_poi2, scity, target_t_adj, lat_source, lat_target, target_test_x, \
-source_x, target_val_y, lng_source2, num_tuine_epochs, source_d_adj, source_edge_labels, source_prox_adj, \
-source_loader, source_graphs2, transform, source_t_adj2, smax2, target_train_loader, \
-source_test_dataset2, source_poi_cos2, source_od_adj2, target_s_adj, target_test_dataset, \
-source_test_y2, source_y, source_dataset2, target_road_adj, source_test_loader, target_poi_adj, \
-smax, start_time, target_test_y, lng_target, source_test_loader2, \
-source_prox_adj2, target_data, source_x2, target_train_dataset, source_test_dataset, source_test_x2, source_od_adj, target_val_loader, smin, target_poi_cos, target_edge_labels, \
-source_edges, source_train_x2, source_s_adj, source_y2, source_val_x2, source_emb_label, \
-target_norm_poi, source_norm_poi, source_train_x, datatype, source_val_y, mask_target, \
-source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
-source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
-target_train_y, th_mask_target, device, p_bar = load_process_data(args, p_bar)
-
+os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
+gpu_available = torch.cuda.is_available()
+if gpu_available:
+    device = torch.device('cuda:0')
+else:
+    device = torch.device('cpu')
+dataname = args.dataname
+tcity = args.tcity
+datatype = args.datatype
+target_data = np.load("../data/%s/%s%s_%s.npy" % (tcity, dataname, tcity, datatype))
+lng_target, lat_target = target_data.shape[1], target_data.shape[2]
+mask_target = target_data.sum(0) > 0
+th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to(device)
+log("%d valid regions in target" % np.sum(mask_target))
+target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
+lag = [-6, -5, -4, -3, -2, -1]
+target_data, max_val, min_val = min_max_normalize(target_data)
+target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data, lag)
+if args.data_amount != 0:
+    target_train_x = target_train_x[-args.data_amount * 24:, :, :, :]
+    target_train_y = target_train_y[-args.data_amount * 24:, :, :, :]
+target_train_dataset = TensorDataset(torch.Tensor(target_train_x), torch.Tensor(target_train_y))
+target_val_dataset = TensorDataset(torch.Tensor(target_val_x), torch.Tensor(target_val_y))
+target_test_dataset = TensorDataset(torch.Tensor(target_test_x), torch.Tensor(target_test_y))
+target_train_loader = DataLoader(target_train_dataset, batch_size=args.batch_size, shuffle=True)
+target_val_loader = DataLoader(target_val_dataset, batch_size=args.batch_size)
+target_test_loader = DataLoader(target_test_dataset, batch_size=args.batch_size)
 
 if args.model == 'STResNet':
     net = STResNet(len(lag), 1, 3).to(device)
@@ -64,11 +69,9 @@ elif args.model == 'STNet':
     net = STNet(1, 3, th_mask_target).to(device)
     log(net)
 
-
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
-p_bar.process(5, 1, 5)
 
 
 def evaluate(net_, loader, spatial_mask):
@@ -115,10 +118,10 @@ def evaluate(net_, loader, spatial_mask):
     return np.sqrt(se / valid_points), ae / valid_points, losses
 
 
-p_bar = process_bar(final_prompt="训练完成", unit="epoch")
-p_bar.process(0, 1, num_tuine_epochs)
+p_bar = process_bar(final_prompt="测试完成", unit="epoch")
+p_bar.process(0, 1, 1)
 net = torch.load(args.test_mode_path)
-for ep in range(num_epochs, num_tuine_epochs + num_epochs):
+for ep in range(1):
 
     net.eval()
     rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
@@ -140,8 +143,9 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
 
     log()
-    p_bar.process(0, 1, num_epochs + num_tuine_epochs)
-
+    p_bar.process(0, 1, 1)
 
 log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
-
+write_file("./test_result.res", mode="a+", string="{} {} {}: ".
+           format(dataname, datatype, str(args.data_amount)) + "%.4f, %.4f \n" % (best_test_rmse * (max_val - min_val),
+                                                                                  best_test_mae * (max_val - min_val)))
