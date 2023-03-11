@@ -696,28 +696,26 @@ def calculateGeoSimilarity(spoi, sroad, s_s, s_t, mask_s, tpoi, troad, t_s, t_t,
     sim = np.zeros((scity_width, scity_height))
     for i in range(scity_width):
         for j in range(scity_height):
-            if mask_s[i][j]:
-                for p in range(tcity_width):
-                    for q in range(tcity_height):
-                        if mask_t[p][q]:
-                            if dis_method == "DTW":
-                                sim[i][j] = sim[i][j] + dtw.distance_fast(s_geo_features[i, j, :],
-                                                                          t_geo_features[p, q, :])
-                            elif dis_method == "MMD":
-                                sim[i][j] = sim[i][j] + mmd.forward(
-                                    torch.unsqueeze(torch.from_numpy(s_geo_features[i, j, :]), dim=0),
-                                    torch.unsqueeze(torch.from_numpy(t_geo_features[p, q, :]), dim=0))
-                            elif dis_method == "KL":
-                                sim[i][j] = sim[i][j] + scipy.stats.entropy(
-                                    scipy.special.softmax(s_geo_features[i, j, :]),
-                                    scipy.special.softmax(t_geo_features[p, q, :]))
-                            elif dis_method == "wasserstein":
-                                sim[i][j] = sim[i][j] + wasserstein_distance(s_geo_features[i, j, :],
-                                                                             t_geo_features[p, q, :])
-                            elif dis_method == "JS":
-                                sim[i][j] = sim[i][j] + JS_divergence(
-                                    scipy.special.softmax(s_geo_features[i, j, :]),
-                                    scipy.special.softmax(t_geo_features[p, q, :]))
+            for p in range(tcity_width):
+                for q in range(tcity_height):
+                    if dis_method == "DTW":
+                        sim[i][j] = sim[i][j] + dtw.distance_fast(s_geo_features[i, j, :],
+                                                                  t_geo_features[p, q, :])
+                    elif dis_method == "MMD":
+                        sim[i][j] = sim[i][j] + mmd.forward(
+                            torch.unsqueeze(torch.from_numpy(s_geo_features[i, j, :]), dim=0),
+                            torch.unsqueeze(torch.from_numpy(t_geo_features[p, q, :]), dim=0))
+                    elif dis_method == "KL":
+                        sim[i][j] = sim[i][j] + scipy.stats.entropy(
+                            scipy.special.softmax(s_geo_features[i, j, :]),
+                            scipy.special.softmax(t_geo_features[p, q, :]))
+                    elif dis_method == "wasserstein":
+                        sim[i][j] = sim[i][j] + wasserstein_distance(s_geo_features[i, j, :],
+                                                                     t_geo_features[p, q, :])
+                    elif dis_method == "JS":
+                        sim[i][j] = sim[i][j] + JS_divergence(
+                            scipy.special.softmax(s_geo_features[i, j, :]),
+                            scipy.special.softmax(t_geo_features[p, q, :]))
     sim = min_max_normalize(sim)[0]
     if dis_method in ["JS", "KL"]:
         for i in range(sim.shape[0]):
