@@ -46,9 +46,9 @@ datatype = args.datatype
 num_epochs = args.num_epochs
 num_tuine_epochs = args.num_tuine_epochs
 
-scity3 = args.scity
+scity3 = args.scity3
 tcity = args.tcity
-log("time_weight {} to {}".format(scity3, tcity))
+log("geo_weight {} to {}".format(scity3, tcity))
 source_data3 = np.load("../data/%s/%s%s_%s.npy" % (scity3, dataname, scity3, datatype))
 lng_source3, lat_source3 = source_data3.shape[1], source_data3.shape[2]
 mask_source3 = source_data3.sum(0) > 0
