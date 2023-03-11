@@ -96,6 +96,10 @@ target_s_adj, target_d_adj, target_od_adj = build_source_dest_graph(tcity, datan
 target_s_adj = add_self_loop(target_s_adj)
 target_t_adj = add_self_loop(target_d_adj)
 target_od_adj = add_self_loop(target_od_adj)
+c3shape = source_data3.shape[1], source_data3.shape[2], 14
+ctshape = target_data.shape[1], target_data.shape[2], 14
+source_poi3 = source_norm_poi3.reshape(c3shape)
+target_poi = target_norm_poi.reshape(ctshape)
 geo_weight = calculateGeoSimilarity(spoi=source_poi3, sroad=source_road_adj3, s_s=source_s_adj3, s_t=source_t_adj3,
                                     mask_s=mask_source3, tpoi=target_poi, troad=target_road_adj, t_s=target_s_adj,
                                     t_t=target_t_adj, mask_t=mask_target, dis_method="KL")
