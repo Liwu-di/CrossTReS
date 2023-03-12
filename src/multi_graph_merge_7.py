@@ -110,24 +110,28 @@ if args.need_geo_weight == 1:
     log("============================")
     log("=======use geo score========")
     log("============================")
-
-    c1shape = source_data.shape[1], source_data.shape[2], 14
-    c2shape = source_data2.shape[1], source_data2.shape[2], 14
-    ctshape = target_data.shape[1], target_data.shape[2], 14
-    spoi1 = source_norm_poi.reshape(c1shape)
-    spoi2 = source_norm_poi2.reshape(c2shape)
-    tpoi = target_norm_poi.reshape(ctshape)
-    dis_method = args.geo_dis
-    log("geo dis meth :{}".format(dis_method))
-    geo_weight1 = calculateGeoSimilarity(spoi1, source_road_adj, source_s_adj, source_t_adj, mask_source, tpoi,
-                                         target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
-    geo_weight2 = calculateGeoSimilarity(spoi2, source_road_adj2, source_s_adj2, source_t_adj2, mask_source2, tpoi,
-                                         target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
+    path2 = "./geo_weight/geo_weight{}_{}_{}_{}_{}.npy"
+    geo_weight1 = np.load(path2.format(scity, tcity, datatype, dataname, args.data_amount))
+    geo_weight2 = np.load(path2.format(scity2, tcity, datatype, dataname, args.data_amount))
     if args.need_third == 1:
-        c3shape = source_data3.shape[1], source_data3.shape[2], 14
-        spoi3 = source_norm_poi3.reshape(c3shape)
-        geo_weight3 = calculateGeoSimilarity(spoi3, source_road_adj3, source_s_adj3, source_t_adj3, mask_source3, tpoi,
-                                             target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
+        geo_weight3 = np.load(path2.format(scity3, tcity, datatype, dataname, args.data_amount))
+    # c1shape = source_data.shape[1], source_data.shape[2], 14
+    # c2shape = source_data2.shape[1], source_data2.shape[2], 14
+    # ctshape = target_data.shape[1], target_data.shape[2], 14
+    # spoi1 = source_norm_poi.reshape(c1shape)
+    # spoi2 = source_norm_poi2.reshape(c2shape)
+    # tpoi = target_norm_poi.reshape(ctshape)
+    # dis_method = args.geo_dis
+    # log("geo dis meth :{}".format(dis_method))
+    # geo_weight1 = calculateGeoSimilarity(spoi1, source_road_adj, source_s_adj, source_t_adj, mask_source, tpoi,
+    #                                      target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
+    # geo_weight2 = calculateGeoSimilarity(spoi2, source_road_adj2, source_s_adj2, source_t_adj2, mask_source2, tpoi,
+    #                                      target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
+    # if args.need_third == 1:
+    #     c3shape = source_data3.shape[1], source_data3.shape[2], 14
+    #     spoi3 = source_norm_poi3.reshape(c3shape)
+    #     geo_weight3 = calculateGeoSimilarity(spoi3, source_road_adj3, source_s_adj3, source_t_adj3, mask_source3, tpoi,
+    #                                          target_road_adj, target_s_adj, target_t_adj, mask_target, dis_method=dis_method)
 
 virtual_city = None
 virtual_poi = None
