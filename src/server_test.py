@@ -731,7 +731,7 @@ for count in ["400", "360", "320", "280", "240", "200", "160", "120"]:
     for sc in ["NY", "CHI"]:
         for dn in ["Bike"]:
             for dt in ["dropoff", "pickup"]:
-                for da in ["30", "7", "3"]:
+                for da in ["3"]:
                     scity = sc
                     datatype = dt
                     dataname = dn
