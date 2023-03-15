@@ -617,176 +617,138 @@ log("=============================")
 log("=====需要什么在这之后加什么======")
 log("=============================")
 
+def dfs(maps, i, j):
+    """
 
-def similar(xx, yy):
-    if yy > 0:
-        if yy * (1 - args.accuracy) <= xx <= yy * (1 + args.accuracy):
-            return True
-        else:
-            return False
-    else:
-        if -2 <= xx <= 0.5:
-            return True
-        else:
-            return False
+    @param maps: two dimension array like
+    @param i: coord
+    @param j: coord
+    """
+    if i < 0 or i >= maps.shape[0] or j < 0 or j >= maps.shape[1] or maps[i][j] == False:
+        return []
+    maps[i][j] = False
+    coord_list = []
+    coord_list.append((i, j))
+    for p in [-1, 0, 1]:
+        for q in [-1, 0, 1]:
+            if p == q and p == 0:
+                continue
+            coord_list.extend(dfs(maps, i + p, j + q))
+    return coord_list
 
 
-t, val, test = generate_road_loader([(source_poi, source_road_adj), (source_poi2, source_road_adj2), (target_poi, target_road_adj)], args)
-road_pred = Road(emb_dim)
-road_pred.to(device)
-road_optimizer = optim.Adam(road_pred.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay)
-epoch_loss = []
-val_loss = []
-test_loss = []
-test_accuracy = []
-epochs = args.road_epoch
-zero_weight = args.zero_rate
-rmse = args.rmse_rate
-mae = args.mae_rate
-for epoch in range(epochs):
-    temp = []
-    road_pred.train()
-    for i, (x, y) in enumerate(t):
-        x = x.to(device)
-        y = y.to(device)
-        x = x.to(torch.float32)
-        y = y.to(torch.float32)
-        poi1 = x[:, 0: 14]
-        poi2 = x[:, 14: 28]
-        dis = x[:, 28: 29]
-        out = road_pred.forward(poi1, poi2, dis)
-        weight = torch.ones(y.shape)
-        for i in range(y.shape[0]):
-            if torch.abs(y[i] - out[i]).item() <= (out[i] * 0.15).item():
-                weight[i] = 1
-            else:
-                weight[i] = args.flat_rate
-            if y[i].item() == 0:
-                weight[i] = zero_weight
-        weight = weight.to(device)
-        loss = ((rmse * (out - y) ** 2) + mae * torch.abs(out - y)) * weight
-        loss = loss.sum()
-        road_optimizer.zero_grad()
-        loss.backward()
-        # torch.nn.utils.clip_grad_norm_(road_pred.parameters(), max_norm=2)
-        road_optimizer.step()
-        temp.append(loss.item())
-    epoch_loss.append(np.array(temp).mean())
+def calculate_linked_regions(t1, need_graph=False, threshold=0.2):
+    mask_t1 = t1 > threshold
+    if need_graph:
+        import seaborn as sns
+        fig = sns.heatmap(mask_t1)
+        heatmap = fig.get_figure()
+        heatmap.show()
+    # =======================
+    # 求连通域
+    # =======================
+    city_regions = []
+    count = 0
+    for i in range(mask_t1.shape[0]):
+        for j in range(mask_t1.shape[1]):
 
-    road_pred.eval()
-    temp = []
-    for i, (x, y) in enumerate(val):
-        x = x.to(device)
-        y = y.to(device)
-        x = x.to(torch.float32)
-        y = y.to(torch.float32)
-        poi1 = x[:, 0: 14]
-        poi2 = x[:, 14: 28]
-        dis = x[:, 28: 29]
-        out = road_pred.forward(poi1, poi2, dis)
-        weight = torch.ones(y.shape)
-        for i in range(y.shape[0]):
-            weight[i] = zero_weight
-        weight = weight.to(device)
-        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
-        loss = loss.sum()
-        temp.append(loss.item())
-    val_loss.append(np.array(temp).mean())
+            if mask_t1[i][j]:
+                coord_list = []
+                count += 1
+                coord_list.extend(dfs(mask_t1, i, j))
+                city_regions.append(coord_list)
+    #log("连通域的数量：{}".format(str(count)))
+    linked_regions = np.zeros(mask_t1.shape)
+    for i, x in enumerate(city_regions):
+        for j in x:
+            linked_regions[j[0]][j[1]] = i + 1
+    if need_graph:
+        fig = sns.heatmap(linked_regions, annot=True)
+        heatmap = fig.get_figure()
+        heatmap.show()
+    # ==================
+    # 排除重复的内部区域
+    # ==================
+    linked_regions_range = []
+    area_max = (0, 0, 0, 0, 0)
+    for i in city_regions:
+        x, y = [], []
+        for j in i:
+            x.append(j[0])
+            y.append(j[1])
+        x_max = np.max(x)
+        x_min = np.min(x)
+        y_max = np.max(y)
+        y_min = np.min(y)
+        a = abs(x_max - x_min) * abs(y_max - y_min)
+        if a > area_max[4]:
+            area_max = [x_min, x_max, y_min, y_max, a, True]
+        linked_regions_range.append([x_min, x_max, y_min, y_max, a, True])
 
-    temp = []
-    for i, (x, y) in enumerate(test):
-        x = x.to(device)
-        y = y.to(device)
-        x = x.to(torch.float32)
-        y = y.to(torch.float32)
-        poi1 = x[:, 0: 14]
-        poi2 = x[:, 14: 28]
-        dis = x[:, 28: 29]
-        out = road_pred.forward(poi1, poi2, dis)
-        weight = torch.ones(y.shape)
-        for i in range(y.shape[0]):
-            weight[i] = zero_weight
-        weight = weight.to(device)
-        loss = ((rmse * (out - y) ** 2) + mae * (out - y)) * weight
-        loss = loss.sum()
-        temp.append(loss.item())
-    test_loss.append(np.array(temp).mean())
+    for i in linked_regions_range:
+        if i[0] >= area_max[0] and i[1] <= area_max[1] \
+                and i[2] >= area_max[2] and i[3] <= area_max[3] and i[4] <= area_max[4]:
+            if i == area_max:
+                continue
+            i[5] = False
 
-    count_sum_zero = 0
-    count_sum_not_zero = 0
-    count_true_zero = 0
-    count_true_not_zero = 0
-    count_not_zero_x = 0
-    count_not_zero_y = 0
-    for i, (x, y) in enumerate(test):
-        x = x.to(device)
-        y = y.to(device)
-        x = x.to(torch.float32)
-        y = y.to(torch.float32)
-        poi1 = x[:, 0: 14]
-        poi2 = x[:, 14: 28]
-        dis = x[:, 28: 29]
-        out = road_pred.forward(poi1, poi2, dis)
-        for i in range(out.shape[0]):
-            xx = round(out[i].item())
-            yy = y[i].item()
-            if y[i] > 0:
-                count_sum_not_zero = count_sum_not_zero + 1
-            else:
-                count_sum_zero = count_sum_zero + 1
-            if xx > 0:
-                count_not_zero_x = count_not_zero_x + 1
-            if yy > 0:
-                count_not_zero_y = count_not_zero_y + 1
-            if similar(xx, yy):
-                if yy > 0:
-                    count_true_not_zero = count_true_not_zero + 1
-                else:
-                    count_true_zero = count_true_zero + 1
+    # ================
+    # 求组件范围
+    # ================
+    linked_regions = np.zeros(mask_t1.shape)
+    ccc = 1
+    for i in linked_regions_range:
+        if not i[5]:
+            continue
+        for p in range(mask_t1.shape[0]):
+            for q in range(mask_t1.shape[1]):
+                if i[0] - 1 <= p <= i[1] + 1 and i[2] - 1 <= q <= i[3] + 1 and i[5] == True:
+                    linked_regions[p][q] = ccc
+        ccc += 1
+    #log("排除包含关系之后连通域数量：{}".format(str(ccc - 1)))
+    if need_graph:
+        fig = sns.heatmap(linked_regions, annot=True)
+        heatmap = fig.get_figure()
+        heatmap.show()
+    # =======================
+    # 组合起来
+    # =======================
+    boxes = []
+    coord_range = []
+    for i in linked_regions_range:
+        if i[5]:
+            a, b, c, d = i[0] - 1 if i[0] - 1 > 0 else 0, i[1] + 1 if i[1] + 1 < t1.shape[0] else t1.shape[0] - 1, \
+                         i[2] - 1 if i[2] - 1 > 0 else 0, i[3] + 1 if i[3] + 1 < t1.shape[1] else t1.shape[1] - 1
+            coord_range.append([a, b, c, d,
+                                (b - a + 1) * (d - c + 1),
+                                True])
+            boxes.append([abs(coord_range[-1][1] - coord_range[-1][0]) + 1,
+                          abs(coord_range[-1][3] - coord_range[-1][2]) + 1])
+    return boxes, coord_range
+tcity = "DC"
+for count in ["400", "360", "320", "280", "240", "200", "160", "120"]:
+    for sc in ["NY", "CHI"]:
+        for dn in ["Bike"]:
+            for dt in ["dropoff", "pickup"]:
+                for da in ["30", "7", "3"]:
+                    scity = sc
+                    datatype = dt
+                    dataname = dn
+                    damount = da
+                    c = int(count)
+                    path = "./time_weight/time_weight{}_{}_{}_{}_{}.npy"
+                    path2 = "./geo_weight/geo_weight{}_{}_{}_{}_{}.npy"
+                    s1_time_weight = np.load(path.format(scity, tcity, datatype, dataname, damount)).sum(2)
+                    s1_time_weight, _, _ = min_max_normalize(s1_time_weight)
+                    geo_weight1 = np.load(path2.format(scity, tcity, datatype, dataname, damount))
+                    s1_time_weight = args.time_rate * s1_time_weight + args.geo_rate * geo_weight1
+                    for i in range(0, 4000, 1):
+                        rate = i / 20000
 
-    log(epoch_loss[-1], val_loss[-1], count_true_zero / count_sum_zero, count_true_not_zero / count_sum_not_zero)
-    log("count_not_zero_x {} count_not_zero_y {} ".format(
-        count_not_zero_x, count_not_zero_y))
-    log()
-# import matplotlib.pyplot as plt
-# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(epoch_loss), label="train")
-# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(val_loss), label="val")
-# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_loss), label="test")
-# plt.plot(np.array([i + 1 for i in range(epochs)]), np.array(test_accuracy), label="acc")
-# plt.xlabel("epoch")
-# plt.ylabel("loss")
-# plt.grid()
-# plt.legend()
-# plt.show()
-
-# torch.save(road_pred, local_path_generate("", "road_pred.pth"))
-# road_pred2 = torch.load(local_path_generate("", "road_pred.pth"))
-
-with torch.no_grad():
-    virtual_road = torch.zeros((virtual_city.shape[1] * virtual_city.shape[2], virtual_city.shape[1] * virtual_city.shape[2]))
-    virtual_poi = torch.from_numpy(virtual_poi)
-    virtual_poi = virtual_poi.to(device)
-    virtual_poi = virtual_poi.to(torch.float32)
-    for i in range(virtual_road.shape[0]):
-        poi1 = torch.stack([virtual_poi[i] for j in range(virtual_road.shape[0])])
-        poi2 = virtual_poi
-        dis = []
-        for j in range(virtual_road.shape[0]):
-            m, n = idx_1d22d(i, (virtual_city.shape[1], virtual_city.shape[2]))
-            p, q = idx_1d22d(j, (virtual_city.shape[1], virtual_city.shape[2]))
-            dis.append(abs(m - p) + abs(n - q))
-        dis = torch.from_numpy(np.array([dis])).to(device).reshape((virtual_road.shape[0], 1)).to(torch.float32)
-        virtual_road[i, :] = road_pred.forward(poi1, poi2, dis).reshape(virtual_road.shape[0])
-    virtual_road = add_self_loop(virtual_road)
-    for i in range(virtual_road.shape[0]):
-        for j in range(virtual_road.shape[1]):
-            if virtual_road[i][j] <= 0:
-                virtual_road[i][j] = 0
-    import seaborn as sns
-    virtual_road = virtual_road.cpu().numpy()
-    fig = sns.heatmap(virtual_road)
-    heatmap = fig.get_figure()
-    heatmap = fig.get_figure()
-    heatmap.savefig(local_path_generate("", "virtual_road.png"),
-                    dpi=400)
-    log(np.mean(virtual_road[virtual_road > 0]))
+                        boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, rate)
+                        cc = sum(i[4] for i in linked_regions_range1)
+                        rate = (i + 1) / 20000
+                        boxes1, linked_regions_range1 = calculate_linked_regions(s1_time_weight, False, rate)
+                        ccc = sum(i[4] for i in linked_regions_range1)
+                        if cc > c > ccc:
+                            print("{}{}{}{}".format(scity, dn, dt, da) + " =  " + str(cc) + " = " + str(i))
