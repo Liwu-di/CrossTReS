@@ -637,6 +637,7 @@ def dfs(maps, i, j):
     return coord_list
 
 
+A  = []
 def calculate_linked_regions(t1, need_graph=False, threshold=0.2):
     mask_t1 = t1 > threshold
     if need_graph:
@@ -752,3 +753,5 @@ for count in ["400", "360", "320", "280", "240", "200", "160", "120"]:
                         ccc = sum(i[4] for i in linked_regions_range1)
                         if cc > c > ccc:
                             print("{}{}{}{}".format(scity, dn, dt, da) + " =  " + str(cc) + " = " + str(i))
+                            A.append("{}{}{}{}".format(scity, dn, dt, da) + " =  " + str(cc) + " = " + str(i))
+write_file("./rate", mode="w+", string="\n".join(A))
