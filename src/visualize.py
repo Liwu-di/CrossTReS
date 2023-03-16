@@ -5,6 +5,7 @@
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
 # @Info    : visualize
+from PaperCrawlerUtil.common_util import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from random import random
@@ -51,4 +52,7 @@ def visualize(width, height, rectangles):
     axes.set_xlim(0, width)
     axes.set_ylim(0, height)
     plt.gca().set_aspect('equal', adjustable='box')
+    plt.savefig(local_path_generate(suffix=".png"), dpi=600)
     plt.show()
+
+
