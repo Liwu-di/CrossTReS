@@ -1065,13 +1065,8 @@ def evaluate(net_, loader, spatial_mask):
                 eff_batch_size = y.shape[0]
                 loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, spatial_mask.view(-1).bool()]
                 losses.append(loss)
-                for q in range(y.shape[0]):
-                    for p in range(y.shape[1]):
-                        for n in range(y.shape[2]):
-                            if abs(y[q][p][n] - 0) < 0.000001:
-                                continue
-                            else:
-                                mape += abs((out[q][p][n] - y[q][p][n])) / y[q][p][n].sum().item()
+                np.where(a - 0 > 0.000001, a, 999999999)
+                mape += abs((out - y)) / y.sum().item()
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
                 lag = y.shape[1]
@@ -1082,13 +1077,8 @@ def evaluate(net_, loader, spatial_mask):
                 ae += (out - y).abs().sum().item()
                 loss = ((out - y) ** 2)
                 losses.append(loss)
-                for q in range(y.shape[0]):
-                    for p in range(y.shape[1]):
-                        for n in range(y.shape[2]):
-                            if abs(y[q][p][n] - 0) < 0.000001:
-                                continue
-                            else:
-                                mape += abs((out[q][p][n] - y[q][p][n])) / y[q][p][n].sum().item()
+                np.where(a - 0 > 0.000001, a, 999999999)
+                mape += abs((out - y)) / y.sum().item()
     return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
 
