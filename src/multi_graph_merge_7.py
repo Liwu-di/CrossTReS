@@ -1659,7 +1659,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
     writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
