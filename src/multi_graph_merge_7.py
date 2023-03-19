@@ -1067,7 +1067,7 @@ def evaluate(net_, loader, spatial_mask):
                 losses.append(loss)
                 with np.errstate(divide='ignore', invalid='ignore'):
                     ape = (out - y).abs() / y
-                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    ape[~ np.isfinite(ape.cpu().numpy())] = 0  # 对 -inf, inf, NaN进行修正，置为0
                     mape += ape.sum().item()
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
@@ -1081,7 +1081,7 @@ def evaluate(net_, loader, spatial_mask):
                 losses.append(loss)
                 with np.errstate(divide='ignore', invalid='ignore'):
                     ape = (out - y).abs() / y
-                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    ape[~ np.isfinite(ape.cpu().numpy())] = 0  # 对 -inf, inf, NaN进行修正，置为0
                     mape += ape.sum().item()
     return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
