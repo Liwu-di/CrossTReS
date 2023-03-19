@@ -1029,6 +1029,7 @@ meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
+best_test_mape = 999
 p_bar.process(5, 1, 5)
 
 
@@ -1044,6 +1045,7 @@ def evaluate(net_, loader, spatial_mask):
     with torch.no_grad():
         se = 0
         ae = 0
+        mape = 0
         valid_points = 0
         losses = []
         for it_ in loader:
@@ -1060,6 +1062,10 @@ def evaluate(net_, loader, spatial_mask):
             if len(out.shape) == 4:  # STResNet
                 se += (((out - y) ** 2) * (spatial_mask.view(1, 1, lng, lat))).sum().item()
                 ae += ((out - y).abs() * (spatial_mask.view(1, 1, lng, lat))).sum().item()
+                for q in range(len(y)):
+                    if y[q] - 0 < 0.00001:
+                        y[q] = 0.00001
+                mape += abs((out - y) / y) * (spatial_mask.view(1, 1, lng, lat)).sum().item()
                 eff_batch_size = y.shape[0]
                 loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, spatial_mask.view(-1).bool()]
                 losses.append(loss)
@@ -1073,7 +1079,7 @@ def evaluate(net_, loader, spatial_mask):
                 ae += (out - y).abs().sum().item()
                 loss = ((out - y) ** 2)
                 losses.append(loss)
-    return np.sqrt(se / valid_points), ae / valid_points, losses
+    return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
 
 def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None):
@@ -1602,7 +1608,7 @@ for ep in range(num_epochs):
         # stop pre-training
         break
     net.eval()
-    rmse_val, mae_val, target_val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
     log()
@@ -1633,8 +1639,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
     target_pred_loss.append(np.mean(avg_loss))
     net.eval()
-    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_test, mae_test, test_losses, test_mape = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
     sums = 0
     for i in range(len(val_losses)):
         sums = sums + val_losses[i].mean(0).sum().item()
@@ -1649,6 +1655,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
         best_test_mae = mae_test
+        best_test_mape = test_mape
         save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
@@ -1682,7 +1689,7 @@ long_term_save["validation_mae"] = validation_mae
 long_term_save["test_rmse"] = test_rmse
 long_term_save["test_mae"] = test_mae
 
-log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
 
 save_obj(long_term_save,
          local_path_generate("experiment_data",
@@ -1698,8 +1705,8 @@ save_obj(long_term_save,
 if args.c != "default":
     if args.need_remark == 1:
         record.update(record_id, get_timestamp(),
-                      "%.4f,%.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)),
+                      "%.4f,%.4f,%.4f" %
+                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
                       remark="{}C {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
                                                                args.scity2,
                                                                args.scity3 if args.need_third == 1 else "", args.tcity,
