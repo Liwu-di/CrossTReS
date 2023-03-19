@@ -1715,7 +1715,7 @@ if args.c != "default":
                       remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
                                                                args.scity2,
                                                                args.scity3 if args.need_third == 1 else "", args.tcity,
-                                                               str(args.data_amount), args.dataname, args.datatype))
+                                                               str(args.data_amount), args.dataname, args.datatype, args.machine_code))
     else:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f, %.4f" %
