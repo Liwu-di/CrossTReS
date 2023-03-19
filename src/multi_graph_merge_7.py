@@ -1712,11 +1712,12 @@ if args.c != "default":
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f,%.4f" %
                       (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
-                      remark="{}C {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
+                      remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
                                                                args.scity2,
                                                                args.scity3 if args.need_third == 1 else "", args.tcity,
                                                                str(args.data_amount), args.dataname, args.datatype))
     else:
         record.update(record_id, get_timestamp(),
-                      "%.4f,%.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+                      "%.4f,%.4f, %.4f" %
+                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
+                      remark="{}".format(args.machine_code))
