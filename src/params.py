@@ -45,7 +45,7 @@ def params():
     # 随机种子 不知道是干嘛的
     parser.add_argument('--seed', type=int, default=-1, help='Random seed. -1 means do not manually set. ')
     # 数据量
-    parser.add_argument('--data_amount', type=int, default=0, help='0: full data, 30/7/3 correspond to days of data')
+    parser.add_argument('--data_amount', type=int, default=3, help='0: full data, 30/7/3 correspond to days of data')
     # 内循环 源训练数量
     parser.add_argument('--sinneriter', type=int, default=3,
                         help='Number of inner iterations (source) for meta learning')
