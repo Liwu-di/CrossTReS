@@ -475,6 +475,7 @@ meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
+best_test_mape = 999
 
 
 def evaluate(net_, loader, spatial_mask):
@@ -489,6 +490,7 @@ def evaluate(net_, loader, spatial_mask):
     with torch.no_grad():
         se = 0
         ae = 0
+        mape = 0
         valid_points = 0
         losses = []
         for it_ in loader:
@@ -508,6 +510,11 @@ def evaluate(net_, loader, spatial_mask):
                 eff_batch_size = y.shape[0]
                 loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, spatial_mask.view(-1).bool()]
                 losses.append(loss)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    ape = (out - y).abs() / y
+                    ape = ape.cpu().numpy().flatten()
+                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    mape += ape.sum().item()
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
                 lag = y.shape[1]
@@ -518,8 +525,12 @@ def evaluate(net_, loader, spatial_mask):
                 ae += (out - y).abs().sum().item()
                 loss = ((out - y) ** 2)
                 losses.append(loss)
-    return np.sqrt(se / valid_points), ae / valid_points, losses
-
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    ape = (out - y).abs() / y
+                    ape = ape.cpu().numpy().flatten()
+                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    mape += ape.sum().item()
+    return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
 def batch_sampler(tensor_list, batch_size):
     """
@@ -962,8 +973,8 @@ for ep in range(num_epochs):
         # stop pre-training
         break
     net.eval()
-    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_s_val, mae_s_val, test_losses = evaluate(net, source_loader, spatial_mask=th_mask_source)
+    rmse_val, mae_val, val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_s_val, mae_s_val, test_losses, _ = evaluate(net, source_loader, spatial_mask=th_mask_source)
     log(
         "Epoch %d, source validation rmse %.4f, mae %.4f" % (ep, rmse_s_val * (smax - smin), mae_s_val * (smax - smin)))
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
@@ -991,8 +1002,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
     target_pred_loss.append(np.mean(avg_loss))
     net.eval()
-    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    rmse_val, mae_val, val_losses, target_val_ape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_test, mae_test, test_losses, target_test_ape = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
     sums = 0
     for i in range(len(val_losses)):
         sums = sums + val_losses[i].mean(0).sum().item()
@@ -1007,9 +1018,10 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
         best_test_mae = mae_test
+        best_test_mape = target_test_ape
         log("Update best test...")
-    log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
+    log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), target_val_ape * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), target_test_ape * (max_val - min_val)))
     writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
@@ -1021,7 +1033,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     log()
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
-log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
 long_term_save["source_weights_ma_list"] = source_weights_ma_list
 long_term_save["source_weight_list"] = source_weight_list
 long_term_save["train_emb_losses"] = train_emb_losses
@@ -1069,5 +1081,5 @@ save_obj(long_term_save,
          )
 if args.c != "default":
     record.update(record_id, get_timestamp(),
-                  "%.4f,%.4f" %
-                  (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+                  "%.4f,%.4f, %.4f" %
+                  (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
