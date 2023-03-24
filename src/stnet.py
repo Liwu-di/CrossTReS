@@ -214,7 +214,7 @@ for ep in range(num_epochs):
     net.train()
 
     virtual_source_loss = train_epoch(net, target_train_loader, pred_optimizer, weights=None, num_iters=args.pretrain_iter,
-                                      mask=th_mask_source)
+                                      mask=th_mask_target)
     net.eval()
     rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
