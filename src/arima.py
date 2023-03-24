@@ -69,6 +69,7 @@ modelfits = []
 models = []
 model = ARIMA(target_data[-((args.data_amount + 90) * 24): -90 * 24, 0, 0], order=(1, 1, 1))
 valid_regions = mask_target.sum()
+log("===========train start =============")
 for i in range(target_data.shape[1]):
     for j in range(target_data.shape[2]):
         if mask_target[i][j]:
@@ -77,9 +78,11 @@ for i in range(target_data.shape[1]):
 mae = []
 rmse = []
 mape = []
-
+log("===========train end =============")
+log("===========test start =============")
 for i in range(target_data.shape[1]):
     for j in range(target_data.shape[2]):
+        log(i, j)
         if mask_target[i][j]:
             ae = 0
             se = 0
@@ -95,7 +98,7 @@ for i in range(target_data.shape[1]):
             mae.append(ae)
             rmse.append(se)
             mape.append(pe)
-
+log("===========test end =============")
 maes = 0
 rmses = 0
 mapes = 0
