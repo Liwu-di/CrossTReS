@@ -72,6 +72,7 @@ valid_regions = mask_target.sum()
 log("===========train start =============")
 for i in range(target_data.shape[1]):
     for j in range(target_data.shape[2]):
+        log("train", i, j)
         if mask_target[i][j]:
             model_fit = model.fit(target_data[-((args.data_amount + 90) * 24): -90 * 24, i, j])
 
@@ -82,7 +83,7 @@ log("===========train end =============")
 log("===========test start =============")
 for i in range(target_data.shape[1]):
     for j in range(target_data.shape[2]):
-        log(i, j)
+        log("test", i, j)
         if mask_target[i][j]:
             ae = 0
             se = 0
