@@ -956,6 +956,7 @@ for ep in range(num_epochs):
     # 有了参数lambda rs，训练net网络
     if args.need_weight == 0:
         source_weights_ma = None
+        log("no weight")
     source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
                               num_iters=args.pretrain_iter)
     avg_source_loss = np.mean(source_loss)
