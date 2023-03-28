@@ -72,6 +72,7 @@ elif args.model == 'STNet':
 best_val_rmse = 999
 best_test_rmse = 999
 best_test_mae = 999
+best_teat_mape = 999
 
 
 def evaluate(net_, loader, spatial_mask):
@@ -86,6 +87,7 @@ def evaluate(net_, loader, spatial_mask):
     with torch.no_grad():
         se = 0
         ae = 0
+        mape = 0
         valid_points = 0
         losses = []
         for it_ in loader:
@@ -105,6 +107,11 @@ def evaluate(net_, loader, spatial_mask):
                 eff_batch_size = y.shape[0]
                 loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, spatial_mask.view(-1).bool()]
                 losses.append(loss)
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    ape = (out - y).abs() / y
+                    ape = ape.cpu().numpy().flatten()
+                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    mape += ape.sum().item()
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
                 lag = y.shape[1]
@@ -115,7 +122,12 @@ def evaluate(net_, loader, spatial_mask):
                 ae += (out - y).abs().sum().item()
                 loss = ((out - y) ** 2)
                 losses.append(loss)
-    return np.sqrt(se / valid_points), ae / valid_points, losses
+                with np.errstate(divide='ignore', invalid='ignore'):
+                    ape = (out - y).abs() / y
+                    ape = ape.cpu().numpy().flatten()
+                    ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
+                    mape += ape.sum().item()
+    return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
 
 p_bar = process_bar(final_prompt="测试完成", unit="epoch")
@@ -124,8 +136,8 @@ net = torch.load(args.test_mode_path)
 for ep in range(1):
 
     net.eval()
-    rmse_val, mae_val, val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_test, mae_test, test_losses = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+    rmse_val, mae_val, val_losses, mape_val = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_test, mae_test, test_losses, mape_test = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
     sums = 0
     for i in range(len(val_losses)):
         sums = sums + val_losses[i].mean(0).sum().item()
@@ -138,14 +150,16 @@ for ep in range(1):
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
         best_test_mae = mae_test
+        best_teat_mape = mape_test
         log("Update best test...")
-    log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val)))
+    log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), mae_test * (max_val - min_val)))
 
     log()
     p_bar.process(0, 1, 1)
 
-log("Best test rmse %.4f, mae %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_teat_mape * (max_val - min_val)))
 write_file("./test_result.res", mode="a+", string="{} {} {}: ".
-           format(dataname, datatype, str(args.data_amount)) + "%.4f, %.4f \n" % (best_test_rmse * (max_val - min_val),
-                                                                                  best_test_mae * (max_val - min_val)))
+           format(dataname, datatype, str(args.data_amount)) + "%.4f, %.4f, %.4f \n" % (best_test_rmse * (max_val - min_val),
+                                                                                  best_test_mae * (max_val - min_val),
+                                                                                        best_teat_mape * (max_val - min_val)))
