@@ -9,6 +9,7 @@
 
 import argparse
 import ast
+import os
 from collections import OrderedDict
 import numpy as np
 import torch
@@ -27,7 +28,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
 from funcs import *
-from params import *
+from params_ipynb import *
 from utils import *
 from multiprocessing import cpu_count
 import networkx as nx
@@ -483,7 +484,7 @@ elif args.use_linked_region == 1:
         boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, args.s3_rate)
     log(boxes1, boxes2, boxes3)
     log(linked_regions_range1, linked_regions_range2, linked_regions_range3)
-
+    log([sum(j[4] for j in i) for i in [linked_regions_range1, linked_regions_range2, linked_regions_range3]])
     from ph import phspprg, phsppog
     from visualize import visualize
     from collections import namedtuple
@@ -915,7 +916,6 @@ lag = [-6, -5, -4, -3, -2, -1]
 virtual_city, virtual_max, virtual_min = min_max_normalize(virtual_city)
 virtual_train_x, virtual_train_y, virtual_val_x, virtual_val_y, virtual_test_x, virtual_test_y \
     = split_x_y(virtual_city, lag, val_num=int(virtual_city.shape[0] / 6), test_num=int(virtual_city.shape[0] / 6))
-# we concatenate all source data
 virtual_x = np.concatenate([virtual_train_x, virtual_val_x, virtual_test_x], axis=0)
 virtual_y = np.concatenate([virtual_train_y, virtual_val_y, virtual_test_y], axis=0)
 virtual_test_dataset = TensorDataset(torch.Tensor(virtual_test_x), torch.Tensor(virtual_test_y))
@@ -955,7 +955,6 @@ log("road adj3: %d nodes, %d edges" % (virtual_road_adj.shape[0], np.sum(virtual
 log("s_adj3, %d nodes, %d edges" % (virtual_s_adj.shape[0], np.sum(virtual_s_adj > 0)))
 log("d_adj3, %d nodes, %d edges" % (virtual_d_adj.shape[0], np.sum(virtual_d_adj > 0)))
 log()
-
 virtual_graphs = adjs_to_graphs([virtual_prox_adj, virtual_road_adj, virtual_poi_adj, virtual_s_adj, virtual_d_adj])
 for i in range(len(virtual_graphs)):
     virtual_graphs[i] = virtual_graphs[i].to(device)
@@ -1006,7 +1005,135 @@ fusion = FusionModule(len(source_graphs), emb_dim, 0.8).to(device)
 scoring = Scoring(emb_dim, th_mask_virtual, th_mask_target).to(device)
 edge_disc = EdgeTypeDiscriminator(len(source_graphs), emb_dim).to(device)
 mmd = MMD_loss()
+emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
+emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
+mvgat_optimizer = optim.Adam(list(mvgat.parameters()) + list(fusion.parameters()), lr=args.learning_rate,
+                             weight_decay=args.weight_decay)
+# 元学习部分
+meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=args.weight_decay)
+best_val_rmse = 999
+best_test_rmse = 999
+best_test_mae = 999
+best_test_mape = 999
+p_bar.process(5, 1, 5)
 
+
+def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
+    """
+    1. 图卷积提取图特征 mvgat
+    2. 融合多图特征 fusion
+    3. 对于多图中的s，d，poi进行预测，并计算损失函数
+    :param graphs_:
+    :param in_feat_:
+    :param od_adj_:
+    :param poi_cos_:
+    :return:
+    """
+    # 图注意，注意这里用了小写，指的是forward方法
+    views = mvgat(graphs_, torch.Tensor(in_feat_).to(device))
+    fused_emb, embs = fusion(views)
+    # embs嵌入是5个图，以下找出start，destination， poi图
+    s_emb = embs[-2]
+    d_emb = embs[-1]
+    poi_emb = embs[-3]
+    # start和destination相乘求出记录预测s和d
+    recons_sd = torch.matmul(s_emb, d_emb.transpose(0, 1))
+    # 注意dim维度0和1分别求s和d
+    pred_d = torch.log(torch.softmax(recons_sd, dim=1) + 1e-5)
+    loss_d = (torch.Tensor(od_adj_).to(device) * pred_d).mean()
+    pred_s = torch.log(torch.softmax(recons_sd, dim=0) + 1e-5)
+    loss_s = (torch.Tensor(od_adj_).to(device) * pred_s).mean()
+    # poi预测求差，loss
+    poi_sim = torch.matmul(poi_emb, poi_emb.transpose(0, 1))
+    loss_poi = ((poi_sim - torch.Tensor(poi_cos_).to(device)) ** 2).mean()
+    loss = -loss_s - loss_d + loss_poi
+
+    return loss, fused_emb, embs
+
+
+def train_emb_epoch2():
+    # loss， 460*64， 5*460*64
+    loss_source, fused_emb_s, embs_s = forward_emb(virtual_graphs, virtual_norm_poi, virtual_od_adj,
+                                                   virtual_poi_cos)
+    loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj,
+                                                   target_poi_cos)
+
+    loss_emb = loss_source + loss_target
+    mmd_losses = None
+    if args.node_adapt == "MMD":
+        # compute domain adaptation loss
+        # 随机抽样128个，计算最大平均误差
+        source_ids = np.random.randint(0, np.sum(mask_virtual), size=(128,))
+        target_ids = np.random.randint(0, np.sum(mask_target), size=(128,))
+        # source1 & target
+        mmd_loss = mmd(fused_emb_s[th_mask_virtual.view(-1).bool()][source_ids, :],
+                       fused_emb_t[th_mask_target.view(-1).bool()][target_ids, :])
+
+        mmd_losses = mmd_loss
+
+    # 随机抽样边256
+    source_batch_edges = np.random.randint(0, len(virtual_edges), size=(256,))
+    target_batch_edges = np.random.randint(0, len(target_edges), size=(256,))
+    source_batch_src = torch.Tensor(virtual_edges[source_batch_edges, 0]).long()
+    source_batch_dst = torch.Tensor(virtual_edges[source_batch_edges, 1]).long()
+    source_emb_src = fused_emb_s[source_batch_src, :]
+    source_emb_dst = fused_emb_s[source_batch_dst, :]
+    target_batch_src = torch.Tensor(target_edges[target_batch_edges, 0]).long()
+    target_batch_dst = torch.Tensor(target_edges[target_batch_edges, 1]).long()
+    target_emb_src = fused_emb_t[target_batch_src, :]
+    target_emb_dst = fused_emb_t[target_batch_dst, :]
+    # 源城市目的城市使用同样的边分类器
+    pred_source = edge_disc.forward(source_emb_src, source_emb_dst)
+    pred_target = edge_disc.forward(target_emb_src, target_emb_dst)
+    source_batch_labels = torch.Tensor(virtual_edge_labels[source_batch_edges]).to(device)
+    target_batch_labels = torch.Tensor(target_edge_labels[target_batch_edges]).to(device)
+    # -（label*log(sigmod(pred)+0.000001)) + (1-label)*log(1-sigmod+0.000001) sum mean
+    loss_et_source = -((source_batch_labels * torch.log(torch.sigmoid(pred_source) + 1e-6)) + (
+            1 - source_batch_labels) * torch.log(1 - torch.sigmoid(pred_source) + 1e-6)).sum(1).mean()
+    loss_et_target = -((target_batch_labels * torch.log(torch.sigmoid(pred_target) + 1e-6)) + (
+            1 - target_batch_labels) * torch.log(1 - torch.sigmoid(pred_target) + 1e-6)).sum(1).mean()
+    loss_et = loss_et_source + loss_et_target
+
+    emb_optimizer.zero_grad()
+    # 公式11
+    loss = None
+    if args.node_adapt == "MMD":
+        loss = loss_emb + mmd_w * mmd_losses + et_w * loss_et
+    elif args.node_adapt == "DT":
+        loss = loss_emb - mmd_w * mmd_losses + et_w * loss_et
+    loss.backward()
+    emb_optimizer.step()
+    return loss_emb.item(), mmd_losses.item(), loss_et.item()
+
+
+emb_losses = []
+mmd_losses = []
+edge_losses = []
+pretrain_emb_epoch = 80
+# 预训练图数据嵌入，边类型分类，节点对齐 ——> 获得区域特征
+for emb_ep in range(pretrain_emb_epoch):
+    loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
+    emb_losses.append(loss_emb_)
+    mmd_losses.append(loss_mmd_)
+    edge_losses.append(loss_et_)
+log("[%.2fs]Pretrain embeddings for %d epochs, average emb loss %.4f, node loss %.4f, edge loss %.4f" % (
+    time.time() - start_time, pretrain_emb_epoch, np.mean(emb_losses), np.mean(mmd_losses),
+    np.mean(edge_losses)))
+with torch.no_grad():
+    views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
+    # 融合模块指的是把多图的特征融合
+    fused_emb_s, _ = fusion(views)
+    views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
+    fused_emb_t, _ = fusion(views)
+
+emb_s = fused_emb_s.cpu().numpy()[mask_virtual.reshape(-1)]
+emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
+logreg = LogisticRegression(max_iter=500)
+cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
+cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
+log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
+    (time.time() - start_time, cvscore_s, cvscore_t))
+log()
 
 def load_all_adj(device):
     dirs = "./data/{}/{}_roads.npy"
@@ -1050,13 +1177,13 @@ adj_virtual = torch.tensor(tttttttttttt).to(device)
 cur_dir = os.getcwd()
 dc = np.load("./data/DC/{}DC_{}.npy".format(args.dataname, args.datatype))
 dcmask = dc.sum(0) > 0
-th_maskdc = torch.from_numpy(dcmask.reshape(1, 420)).to(device)
+th_maskdc = dcmask.reshape(1, 420)
 chi = np.load("./data/CHI/{}CHI_{}.npy".format(args.dataname, args.datatype))
 chimask = chi.sum(0) > 0
-th_maskchi = torch.from_numpy(chimask.reshape(1, 476)).to(device)
+th_maskchi = chimask.reshape(1, 476)
 ny = np.load("./data/NY/{}NY_{}.npy".format(args.dataname, args.datatype))
 nymask = ny.sum(0) > 0
-th_maskny = torch.from_numpy(nymask.reshape(1, 460)).to(device)
+th_maskny = nymask.reshape(1, 460)
 cur_dir = os.getcwd()
 if cur_dir[-2:] == 'sh':
     cur_dir = cur_dir[:-2]
@@ -1074,14 +1201,14 @@ v_p = os.path.join('{}'.format(cur_dir), 'embeddings', 'node2vec', 'pems08',
                                                     str(args.s3_rate).replace(".", "")))
 
 for i in [pems04_emb_path, pems07_emb_path, pems08_emb_path, v_p]:
-    a = i.split("/")
+    a = i.split(os.path.sep)
     b = []
     for i in a:
         if "pkl" in i:
             continue
         else:
             b.append(i)
-    local_path_generate(folder_name="/".join(b), create_folder_only=True)
+    local_path_generate(folder_name=os.path.sep.join(b), create_folder_only=True)
 
 
 def generate_vector(adj, args):
@@ -1101,57 +1228,57 @@ def generate_vector(adj, args):
 
     return g, gfeat
 if os.path.exists(pems04_emb_path):
-    print(f'Loading pems04 embedding...')
+    log(f'Loading pems04 embedding...')
     vec_pems04 = torch.load(pems04_emb_path, map_location='cpu')
     vec_pems04 = vec_pems04.to(device)
 else:
-    print(f'Generating pems04 embedding...')
+    log(f'Generating pems04 embedding...')
     args.dataset = '4'
     vec_pems04, _ = generate_vector(adj_pems04.cpu().numpy(), args)
     vec_pems04 = vec_pems04.to(device)
-    print(f'Saving pems04 embedding...')
+    log(f'Saving pems04 embedding...')
     torch.save(vec_pems04.cpu(), pems04_emb_path)
 
 if os.path.exists(pems07_emb_path):
-    print(f'Loading pems07 embedding...')
+    log(f'Loading pems07 embedding...')
     vec_pems07 = torch.load(pems07_emb_path, map_location='cpu')
     vec_pems07 = vec_pems07.to(device)
 else:
-    print(f'Generating pems07 embedding...')
+    log(f'Generating pems07 embedding...')
     args.dataset = '7'
     vec_pems07, _ = generate_vector(adj_pems07.cpu().numpy(), args)
     vec_pems07 = vec_pems07.to(device)
-    print(f'Saving pems07 embedding...')
+    log(f'Saving pems07 embedding...')
     torch.save(vec_pems07.cpu(), pems07_emb_path)
 
 if os.path.exists(pems08_emb_path):
-    print(f'Loading pems08 embedding...')
+    log(f'Loading pems08 embedding...')
     vec_pems08 = torch.load(pems08_emb_path, map_location='cpu')
     vec_pems08 = vec_pems08.to(device)
 else:
-    print(f'Generating pems08 embedding...')
+    log(f'Generating pems08 embedding...')
     args.dataset = '8'
     vec_pems08, _ = generate_vector(adj_pems08.cpu().numpy(), args)
     vec_pems08 = vec_pems08.to(device)
-    print(f'Saving pems08 embedding...')
+    log(f'Saving pems08 embedding...')
     torch.save(vec_pems08.cpu(), pems08_emb_path)
 
 if os.path.exists(v_p):
-    print(f'Loading v embedding...')
+    log(f'Loading v embedding...')
     vec_virtual = torch.load(v_p, map_location='cpu')
     vec_virtual = vec_virtual.to(device)
 else:
-    print(f'Generating virtual embedding...')
+    log(f'Generating virtual embedding...')
     args.dataset = '8'
     vec_virtual, _ = generate_vector(virtual_road, args)
     vec_virtual = vec_virtual.to(device)
-    print(f'Saving virtual embedding...')
+    log(f'Saving virtual embedding...')
     torch.save(vec_virtual.cpu(), v_p)
-print(
+log(
     f'Successfully load embeddings, 4: {vec_pems04.shape}, 7: {vec_pems07.shape}, 8: {vec_pems08.shape}, vec_virtual:{vec_virtual.shape}')
 
 domain_criterion = torch.nn.NLLLoss()
-domain_classifier = Domain_classifier_DG(num_class=3, encode_dim=args.enc_dim)
+domain_classifier = Domain_classifier_DG(num_class=2, encode_dim=args.enc_dim)
 
 domain_classifier = domain_classifier.to(device)
 state = g = None, None
@@ -1175,33 +1302,33 @@ pretrain_model_path = os.path.join('{}'.format(cur_dir), 'pretrained', 'transfer
                                        str(args.s3_rate).replace(".", ""))
                                    )
 
-a = pretrain_model_path.split("/")
+a = pretrain_model_path.split(os.path.sep)
 b = []
 for i in a:
     if "pkl" not in i:
         b.append(i)
-local_path_generate("/".join(b), create_folder_only=True)
+local_path_generate(os.path.sep.join(b), create_folder_only=True)
 vec_pems04 = vec_virtual
 adj_pems04 = adj_virtual
 args.dataset = "8"
 
 def net_fix(source, y, weight, mask, fast_weights, bn_vars, net):
-    pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
-    if len(pred_source.shape) == 4:  # STResNet
-        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
-                      mask.view(-1).bool()]
-        loss_source = (loss_source * weight).mean(0).sum()
-    elif len(pred_source.shape) == 3:  # STNet
-        y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-        loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
-        loss_source = loss_source.mean(0).sum()
-    fast_loss = loss_source
-    grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
-    for name, grad in zip(fast_weights.keys(), grads):
+    pred_source = net.functional_forward(vec_pems04, vec_pems07, vec_pems08, source, True, fast_weights, bn_vars, bn_training=True, data_set="4")
+    label = y.reshape((pred_source.shape[0], -1, pred_source.shape[2]))
+    mask = mask.reshape((1, mask.shape[1] * mask.shape[2], 1))
+    fast_loss = torch.abs(pred_source - label)[:, mask.view(-1).bool(),:]
+    fast_loss = (fast_loss * weight.view((1, -1, 1))).mean(0).sum()
+    a = [(i, torch.autograd.grad(fast_loss, fast_weights[i], create_graph=True, allow_unused=True)) for i in fast_weights.keys()]
+    grads = {}
+    used_fast_weight = OrderedDict()
+    for i in a:
+        if i[1][0] is not None:
+            grads[i[0]] = i[1][0]
+            used_fast_weight[i[0]] = fast_weights[i[0]]
+
+    for name, grad in zip(grads.keys(), grads.values()):
         fast_weights[name] = fast_weights[name] - args.innerlr * grad
     return fast_loss, fast_weights, bn_vars
-
-
 def meta_train_epoch(s_embs, t_embs, net):
     meta_query_losses = []
     for meta_ep in range(args.outeriter):
@@ -1211,13 +1338,12 @@ def meta_train_epoch(s_embs, t_embs, net):
         # inner loop on source, pre-train with weights
         for meta_it in range(args.sinneriter):
             s_x1, s_y1 = batch_sampler((torch.Tensor(virtual_train_x), torch.Tensor(virtual_train_y)),
-                                       args.meta_batch_size)
+                                       args.batch_size)
             s_x1 = s_x1.reshape((s_x1.shape[0], s_x1.shape[1], s_x1.shape[2] * s_x1.shape[3]))
             s_y1 = s_y1.reshape((s_y1.shape[0], s_y1.shape[1], s_y1.shape[2] * s_y1.shape[3]))
             s_x1 = s_x1.to(device)
             s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_virtual, fast_weights,
-                                                       bn_vars)
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_virtual, fast_weights, bn_vars, net)
             fast_losses.append(fast_loss.item())
 
         # inner loop on target, simulate fine-tune
@@ -1229,25 +1355,22 @@ def meta_train_epoch(s_embs, t_embs, net):
 
             t_x = t_x.to(device)
             t_y = t_y.to(device)
-            pred_t = net.functional_forward(t_x, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
-            if len(pred_t.shape) == 4:  # STResNet
-                loss_t = ((pred_t - t_y) ** 2).view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # log(loss_source.shape)
-                loss_t = loss_t.mean(0).sum()
-            elif len(pred_t.shape) == 3:  # STNet
-                t_y = t_y.view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # log(t_y.shape)
-                loss_t = ((pred_t - t_y) ** 2)  # .view(1, 1, -1))
-                # log(loss_t.shape)
-                # log(loss_source.shape)
-                # log(source_weights.shape)
-                loss_t = loss_t.mean(0).sum()
-            fast_loss = loss_t
-            fast_losses.append(fast_loss.item())  #
-            grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
-            for name, grad in zip(fast_weights.keys(), grads):
+            pred_source = net.functional_forward(vec_pems04, vec_pems07, vec_pems08, t_x, True, fast_weights, bn_vars, bn_training=True, data_set="8")
+            label = t_y.reshape((pred_source.shape[0], -1, pred_source.shape[2]))
+            mask = th_mask_target
+            mask = mask.reshape((1, mask.shape[1] * mask.shape[2], 1))
+            fast_loss = torch.abs(pred_source - label)[:, mask.view(-1).bool(),:]
+            fast_loss = fast_loss.mean(0).sum()
+            a = [(i, torch.autograd.grad(fast_loss, fast_weights[i], create_graph=True, allow_unused=True)) for i in fast_weights.keys()]
+            grads = {}
+            used_fast_weight = OrderedDict()
+            for i in a:
+                if i[1][0] is not None:
+                    grads[i[0]] = i[1][0]
+                    used_fast_weight[i[0]] = fast_weights[i[0]]
+
+            for name, grad in zip(grads.keys(), grads.values()):
                 fast_weights[name] = fast_weights[name] - args.innerlr * grad
-                # fast_weights[name].add_(grad, alpha = -args.innerlr)
 
         q_losses = []
         target_iter = max(args.sinneriter, args.tinneriter)
@@ -1259,18 +1382,20 @@ def meta_train_epoch(s_embs, t_embs, net):
 
             x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
             temp_mask = th_mask_target
+            x_q = x_q.reshape((x_q.shape[0], x_q.shape[1], x_q.shape[2] * x_q.shape[3]))
+            y_q = y_q.reshape((y_q.shape[0], y_q.shape[1], y_q.shape[2] * y_q.shape[3]))
+
             x_q = x_q.to(device)
             y_q = y_q.to(device)
-            pred_q = net.functional_forward(x_q, temp_mask.bool(), fast_weights, bn_vars, bn_training=True)
-            if len(pred_q.shape) == 4:  # STResNet
-                loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
-                loss = loss.mean(0).sum()
-            elif len(pred_q.shape) == 3:  # STNet
-                y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
-                loss = ((pred_q - y_q) ** 2).mean(0).sum()
-            q_losses.append(loss)
+            pred_source = net.functional_forward(vec_pems04, vec_pems07, vec_pems08, x_q, True, fast_weights, bn_vars, bn_training=True, data_set="8")
+            label = y_q.reshape((pred_source.shape[0], -1, pred_source.shape[2]))
+            mask = temp_mask.reshape((1, temp_mask.shape[1] * temp_mask.shape[2], 1))
+            fast_loss = torch.abs(pred_source - label)[:, mask.view(-1).bool(),:]
+            fast_loss = fast_loss.mean(0).sum()
+
+            q_losses.append(fast_loss)
         q_loss = torch.stack(q_losses).mean()
-        weights_mean = (source_weights ** 2).mean()
+        weights_mean = source_weights.mean()
         meta_loss = q_loss + weights_mean * args.weight_reg
         meta_optimizer.zero_grad()
         meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
@@ -1278,58 +1403,230 @@ def meta_train_epoch(s_embs, t_embs, net):
         meta_optimizer.step()
         meta_query_losses.append(q_loss.item())
     return np.mean(meta_query_losses)
+def select_mask(a):
+    if a == 420:
+        return th_maskdc
+    elif a == 476:
+        return th_maskchi
+    elif a == 460:
+        return th_maskny
+def test():
+    if type == 'pretrain':
+        domain_classifier.eval()
+    model.eval()
+
+    test_mape, test_rmse, test_mae = list(), list(), list()
+
+    for i, (feat, label) in enumerate(test_dataloader.get_iterator()):
+        feat = torch.FloatTensor(feat).to(device)
+        label = torch.FloatTensor(label).to(device)
+        mask = select_mask(feat.shape[2])
+        if mask is None:
+            mask = mask_virtual
+        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+            continue
+
+        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
+        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+        label = label.reshape((-1, label.size(2)))
+
+        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=mask, weight=None)
+
+        test_mae.append(mae_test.item())
+        test_rmse.append(rmse_test.item())
+        test_mape.append(mape_test.item())
+
+    test_rmse = np.mean(test_rmse)
+    test_mae = np.mean(test_mae)
+    test_mape = np.mean(test_mape)
+
+    return test_mae, test_rmse, test_mape
+
+def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl):
+    t0 = time.time()
+    train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
+    train_correct = 0
+
+    model.train()
+    if type == 'pretrain':
+        domain_classifier.train()
+
+    for i, (feat, label) in enumerate(tdl.get_iterator()):
+        maskt = select_mask(feat.shape[2])
+        if maskt is None:
+            maskt = mask
+        Reverse = False
+        if i > 0:
+            if train_acc[-1] > 0.333333:
+                Reverse = True
+        p = float(i + start_step) / total_step
+        constant = 2. / (1. + np.exp(-10 * p)) - 1
+
+        feat = torch.FloatTensor(feat).to(device)
+        label = torch.FloatTensor(label).to(device)
+        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+            continue
+
+        optimizer.zero_grad()
+        if args.models not in ['DCRNN', 'STGCN', 'HA']:
+            if type == 'pretrain':
+                pred, shared_pems04_feat, shared_pems07_feat, shared_pems08_feat = model(vec_pems04, vec_pems07,vec_pems08, feat, False)
+            elif type == 'fine-tune':
+                pred = model(vec_pems04, vec_pems07, vec_pems08, feat, False)
+
+            pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+            label = label.reshape((-1, label.size(2)))
+
+            if type == 'pretrain':
+                pems04_pred = domain_classifier(shared_pems04_feat, constant, Reverse)
+
+                pems08_pred = domain_classifier(shared_pems08_feat, constant, Reverse)
+
+                pems04_label = 0 * torch.ones(pems04_pred.shape[0]).long().to(device)
+
+                pems08_label = 1 * torch.ones(pems08_pred.shape[0]).long().to(device)
+
+                pems04_pred_label = pems04_pred.max(1, keepdim=True)[1]
+                pems04_correct = pems04_pred_label.eq(pems04_label.view_as(pems04_pred_label)).sum()
 
 
-def model_train(args, model, optimizer):
-    p_bar = process_bar(final_prompt="训练完成", unit="epoch")
-    p_bar.process(0, 1, args.epoch + args.fine_epoch)
-    for ep in range(args.epoch):
+                pems08_pred_label = pems08_pred.max(1, keepdim=True)[1]
+                pems08_correct = pems08_pred_label.eq(pems08_label.view_as(pems08_pred_label)).sum()
+
+                pems04_loss = domain_criterion(pems04_pred, pems04_label)
+
+                pems08_loss = domain_criterion(pems08_pred, pems08_label)
+
+                domain_loss = pems04_loss + pems08_loss
+
+        if type == 'pretrain':
+            train_correct = pems04_correct + pems08_correct
+
+        mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
+
+        if type == 'pretrain':
+            loss = mae_train + args.beta * (args.theta * domain_loss)
+        elif type == 'fine-tune':
+            loss = mae_train
+
+        loss.backward()
+        optimizer.step()
+
+        train_mae.append(mae_train.item())
+        train_rmse.append(rmse_train.item())
+
+        if type == 'pretrain':
+            train_acc.append(train_correct.item() / 855)
+        elif type == 'fine-tune':
+            train_acc.append(0)
+
+    if type == 'pretrain':
+        domain_classifier.eval()
+    model.eval()
+
+    for i, (feat, label) in enumerate(vdl.get_iterator()):
+        feat = torch.FloatTensor(feat).to(device)
+        label = torch.FloatTensor(label).to(device)
+        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+            continue
+
+        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
+        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+        label = label.reshape((-1, label.size(2)))
+        mae_val, rmse_val, mape_val = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=maskt, weight=weight)
+        val_mae.append(mae_val.item())
+        val_rmse.append(rmse_val.item())
+
+    test_mae, test_rmse, test_mape = test()
+    dur.append(time.time() - t0)
+    return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
+        val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
+
+def model_train(args, model, optimizer, trainloader, valloader ,testloader):
+    eps = 0
+    if type == 'pretrain':
+        p_bar = process_bar(final_prompt="预训练完成", unit="epoch")
+        p_bar.process(0, 1, args.epoch)
+        eps = args.epoch
+    else:
+        p_bar = process_bar(final_prompt="微调完成", unit="epoch")
+        p_bar.process(0, 1, args.fine_epoch)
+        eps = args.fine_epoch
+    for ep in range(eps):
         model.train()
         mvgat.train()
         fusion.train()
         scoring.train()
         # train embeddings
-        emb_losses = []
-        mmd_losses = []
-        edge_losses = []
-        for emb_ep in range(5):
-            loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
-            emb_losses.append(loss_emb_)
-            mmd_losses.append(loss_mmd_)
-            edge_losses.append(loss_et_)
-        with torch.no_grad():
-            views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
-            fused_emb_s, _ = fusion(views)
-            views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
-            fused_emb_t, _ = fusion(views)
-        avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
-        with torch.no_grad():
-            source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
-        if ep == 0:
-            source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-        source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
-        weight = None if args.need_weight == 0 else source_weights_ma
-        virtual_source_loss = train_epoch(model, virtual_loader, optimizer, weights=weight, num_iters=args.pretrain_iter,
-                                          mask=th_mask_virtual)
-        avg_target_loss = evaluate(model, target_train_loader, spatial_mask=th_mask_target)[0]
-        log("[%.2fs]Epoch %d, virtual_source_loss %.4f" % (time.time() - start_time, ep, np.mean(virtual_source_loss)))
-        log("[%.2fs]Epoch %d, target_loss %.4f" % (time.time() - start_time, ep, avg_target_loss))
-        if source_weights_ma.mean() < 0.005:
-            # stop pre-training
+        if type == 'pretrain':
+            emb_losses = []
+            mmd_losses = []
+            edge_losses = []
+            for emb_ep in range(5):
+                loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
+                emb_losses.append(loss_emb_)
+                mmd_losses.append(loss_mmd_)
+                edge_losses.append(loss_et_)
+            with torch.no_grad():
+                views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
+                fused_emb_s, _ = fusion(views)
+                views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
+                fused_emb_t, _ = fusion(views)
+            avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
+            with torch.no_grad():
+                source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
+            if ep == 0:
+                source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
+            source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+        dur = []
+        epoch = 1
+        best = 999999999999999
+        acc = list()
+
+        step_per_epoch = trainloader.get_num_batch()
+        total_step = 200 * step_per_epoch
+
+
+        start_step = epoch * step_per_epoch
+        if type == 'fine-tune' and epoch > 1000:
+            args.val = True
+        if type == 'fine-tune':
+            source_weights_ma = None
+        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader)
+        log(f'Epoch {epoch} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
+        epoch += 1
+        acc.append(train_acc)
+        if mae_val <= best:
+            if type == 'fine-tune' and mae_val > 0.001:
+                best = mae_val
+                state = dict([('model', copy.deepcopy(model.state_dict())),
+                              ('optim', copy.deepcopy(optimizer.state_dict())),
+                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+                cnt = 0
+            elif type == 'pretrain':
+                best = mae_val
+                state = dict([('model', copy.deepcopy(model.state_dict())),
+                              ('optim', copy.deepcopy(optimizer.state_dict())),
+                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+                cnt = 0
+        else:
+            cnt += 1
+        if type == 'pretrain':
+            p_bar.process(ep + 1, 1, args.epoch)
+        else:
+            p_bar.process(ep + 1, 1, args.fine_epoch)
+        if cnt == args.patience or epoch > args.epoch:
+            log(f'Stop!!')
+            log(f'Avg acc: {np.mean(acc)}')
             break
-        model.eval()
-        rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-        log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
-            ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-        log()
-        p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+    log("Optimization Finished!")
     return state
 
 if os.path.exists(pretrain_model_path):
-    print(f'Loading pretrained model at {pretrain_model_path}')
+    log(f'Loading pretrained model at {pretrain_model_path}')
     state = torch.load(pretrain_model_path, map_location='cpu')
 else:
-    print(f'No existing pretrained model at {pretrain_model_path}')
+    log(f'No existing pretrained model at {pretrain_model_path}')
     args.val = args.test = False
     datasets = ["4"]
     dataset_bak = args.dataset
@@ -1340,10 +1637,10 @@ else:
     for dataset in [item for item in datasets if item not in [dataset_bak]]:
         dataset_count = dataset_count + 1
 
-        print(
+        log(
             f'\n\n****************************************************************************************************************')
-        print(f'dataset: {dataset}, model: {args.models}, pre_len: {args.pre_len}, labelrate: {args.labelrate}')
-        print(
+        log(f'dataset: {dataset}, model: {args.models}, pre_len: {args.pre_len}, labelrate: {args.labelrate}')
+        log(
             f'****************************************************************************************************************\n\n')
 
         if dataset == '4':
@@ -1359,7 +1656,7 @@ else:
         def load_graphdata_channel3(args, feat_dir, time, scaler=None, visualize=False, cut=False):
             data = virtual_city
             data = data.reshape((data.shape[0], data.shape[1] * data.shape[2]))
-            print(data.shape)
+            log(data.shape)
             if time:
                 num_data, num_sensor = data.shape
                 data = np.expand_dims(data, axis=-1)
@@ -1382,7 +1679,7 @@ else:
             train_data = data[:train_size]
             val_data = data[train_size:train_size + val_size]
             test_data = data[train_size + val_size:time_len]
-            print(data.shape)
+            log(data.shape)
             if args.labelrate != 100:
                 import random
                 new_train_size = int(train_size * args.labelrate / 100)
@@ -1477,10 +1774,8 @@ else:
 
 
         train_dataloader, val_dataloader, test_dataloader, adj, max_speed, scaler = load_data(args)
-        train_X, train_Y, val_X, val_Y, test_X, test_Y, max_speed, scaler = load_graphdata_channel3(args, "", False,
-                                                                                                    scaler,
-                                                                                                    visualize=False)
-        print([i.shape for i in [train_X, train_Y, val_X, val_Y, test_X, test_Y]])
+        train_X, train_Y, val_X, val_Y, test_X, test_Y, max_speed, scaler = load_graphdata_channel3(args, "", False,scaler,visualize=False)
+        log([i.shape for i in [train_X, train_Y, val_X, val_Y, test_X, test_Y]])
         train_dataloader = MyDataLoader(torch.FloatTensor(train_X), torch.FloatTensor(train_Y),
                                         batch_size=args.batch_size)
         val_dataloader = MyDataLoader(torch.FloatTensor(val_X), torch.FloatTensor(val_Y),
@@ -1498,153 +1793,23 @@ else:
         if dataset_count != 1:
             model.load_state_dict(state['model'])
             optimizer.load_state_dict(state['optim'])
-        emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
-        emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
-        mvgat_optimizer = optim.Adam(list(mvgat.parameters()) + list(fusion.parameters()), lr=args.learning_rate,
-                                     weight_decay=args.weight_decay)
-        # 元学习部分
-        meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=args.weight_decay)
-        best_val_rmse = 999
-        best_test_rmse = 999
-        best_test_mae = 999
-        best_test_mape = 999
-        p_bar.process(5, 1, 5)
 
+        state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader)
 
-        def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
-            """
-            1. 图卷积提取图特征 mvgat
-            2. 融合多图特征 fusion
-            3. 对于多图中的s，d，poi进行预测，并计算损失函数
-            :param graphs_:
-            :param in_feat_:
-            :param od_adj_:
-            :param poi_cos_:
-            :return:
-            """
-            # 图注意，注意这里用了小写，指的是forward方法
-            views = mvgat(graphs_, torch.Tensor(in_feat_).to(device))
-            fused_emb, embs = fusion(views)
-            # embs嵌入是5个图，以下找出start，destination， poi图
-            s_emb = embs[-2]
-            d_emb = embs[-1]
-            poi_emb = embs[-3]
-            # start和destination相乘求出记录预测s和d
-            recons_sd = torch.matmul(s_emb, d_emb.transpose(0, 1))
-            # 注意dim维度0和1分别求s和d
-            pred_d = torch.log(torch.softmax(recons_sd, dim=1) + 1e-5)
-            loss_d = (torch.Tensor(od_adj_).to(device) * pred_d).mean()
-            pred_s = torch.log(torch.softmax(recons_sd, dim=0) + 1e-5)
-            loss_s = (torch.Tensor(od_adj_).to(device) * pred_s).mean()
-            # poi预测求差，loss
-            poi_sim = torch.matmul(poi_emb, poi_emb.transpose(0, 1))
-            loss_poi = ((poi_sim - torch.Tensor(poi_cos_).to(device)) ** 2).mean()
-            loss = -loss_s - loss_d + loss_poi
-
-            return loss, fused_emb, embs
-
-
-        def train_emb_epoch2():
-            # loss， 460*64， 5*460*64
-            loss_source, fused_emb_s, embs_s = forward_emb(virtual_graphs, virtual_norm_poi, virtual_od_adj,
-                                                           virtual_poi_cos)
-            loss_target, fused_emb_t, embs_t = forward_emb(target_graphs, target_norm_poi, target_od_adj,
-                                                           target_poi_cos)
-
-            loss_emb = loss_source + loss_target
-            mmd_losses = None
-            if args.node_adapt == "MMD":
-                # compute domain adaptation loss
-                # 随机抽样128个，计算最大平均误差
-                source_ids = np.random.randint(0, np.sum(mask_virtual), size=(128,))
-                target_ids = np.random.randint(0, np.sum(mask_target), size=(128,))
-                # source1 & target
-                mmd_loss = mmd(fused_emb_s[th_mask_virtual.view(-1).bool()][source_ids, :],
-                               fused_emb_t[th_mask_target.view(-1).bool()][target_ids, :])
-
-                mmd_losses = mmd_loss
-
-            # 随机抽样边256
-            source_batch_edges = np.random.randint(0, len(virtual_edges), size=(256,))
-            target_batch_edges = np.random.randint(0, len(target_edges), size=(256,))
-            source_batch_src = torch.Tensor(virtual_edges[source_batch_edges, 0]).long()
-            source_batch_dst = torch.Tensor(virtual_edges[source_batch_edges, 1]).long()
-            source_emb_src = fused_emb_s[source_batch_src, :]
-            source_emb_dst = fused_emb_s[source_batch_dst, :]
-            target_batch_src = torch.Tensor(target_edges[target_batch_edges, 0]).long()
-            target_batch_dst = torch.Tensor(target_edges[target_batch_edges, 1]).long()
-            target_emb_src = fused_emb_t[target_batch_src, :]
-            target_emb_dst = fused_emb_t[target_batch_dst, :]
-            # 源城市目的城市使用同样的边分类器
-            pred_source = edge_disc.forward(source_emb_src, source_emb_dst)
-            pred_target = edge_disc.forward(target_emb_src, target_emb_dst)
-            source_batch_labels = torch.Tensor(virtual_edge_labels[source_batch_edges]).to(device)
-            target_batch_labels = torch.Tensor(target_edge_labels[target_batch_edges]).to(device)
-            # -（label*log(sigmod(pred)+0.000001)) + (1-label)*log(1-sigmod+0.000001) sum mean
-            loss_et_source = -((source_batch_labels * torch.log(torch.sigmoid(pred_source) + 1e-6)) + (
-                    1 - source_batch_labels) * torch.log(1 - torch.sigmoid(pred_source) + 1e-6)).sum(1).mean()
-            loss_et_target = -((target_batch_labels * torch.log(torch.sigmoid(pred_target) + 1e-6)) + (
-                    1 - target_batch_labels) * torch.log(1 - torch.sigmoid(pred_target) + 1e-6)).sum(1).mean()
-            loss_et = loss_et_source + loss_et_target
-
-            emb_optimizer.zero_grad()
-            # 公式11
-            loss = None
-            if args.node_adapt == "MMD":
-                loss = loss_emb + mmd_w * mmd_losses + et_w * loss_et
-            elif args.node_adapt == "DT":
-                loss = loss_emb - mmd_w * mmd_losses + et_w * loss_et
-            loss.backward()
-            emb_optimizer.step()
-            return loss_emb.item(), mmd_losses.item(), loss_et.item()
-
-
-        emb_losses = []
-        mmd_losses = []
-        edge_losses = []
-        pretrain_emb_epoch = 80
-        # 预训练图数据嵌入，边类型分类，节点对齐 ——> 获得区域特征
-        for emb_ep in range(pretrain_emb_epoch):
-            loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
-            emb_losses.append(loss_emb_)
-            mmd_losses.append(loss_mmd_)
-            edge_losses.append(loss_et_)
-        log("[%.2fs]Pretrain embeddings for %d epochs, average emb loss %.4f, node loss %.4f, edge loss %.4f" % (
-            time.time() - start_time, pretrain_emb_epoch, np.mean(emb_losses), np.mean(mmd_losses),
-            np.mean(edge_losses)))
-        with torch.no_grad():
-            views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
-            # 融合模块指的是把多图的特征融合
-            fused_emb_s, _ = fusion(views)
-            views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
-            fused_emb_t, _ = fusion(views)
-
-        emb_s = fused_emb_s.cpu().numpy()[mask_virtual.reshape(-1)]
-        emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
-        logreg = LogisticRegression(max_iter=500)
-        cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
-        cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
-        log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
-            (time.time() - start_time, cvscore_s, cvscore_t))
-        log()
-        state = model_train(args, model, optimizer)
-
-    print(f'Saving model to {pretrain_model_path} ...')
+    log(f'Saving model to {pretrain_model_path} ...')
     torch.save(state, pretrain_model_path)
     args.dataset = dataset_bak
     args.labelrate = labelrate_bak
     args.val = bak_val
     args.test = bak_test
 
-
-
 type = 'fine-tune'
 args.epoch = args.fine_epoch
 
-print(f'\n\n*******************************************************************************************')
-print(
+log(f'\n\n*******************************************************************************************')
+log(
     f'dataset: {args.dataset}, model: {args.models}, pre_len: {args.pre_len}, labelrate: {args.labelrate}, seed: {args.division_seed}')
-print(f'*******************************************************************************************\n\n')
+log(f'*******************************************************************************************\n\n')
 
 if args.dataset == '4':
     g = vec_pems04
@@ -1664,54 +1829,14 @@ model.load_state_dict(state['model'])
 optimizer.load_state_dict(state['optim'])
 
 if args.labelrate != 0:
-    test_state = model_train(args, model, optimizer)
+    test_state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader)
     model.load_state_dict(test_state['model'])
     optimizer.load_state_dict(test_state['optim'])
 
 
-def select_mask(a):
-    if a == 420:
-        return th_maskdc
-    elif a == 476:
-        return th_maskchi
-    elif a == 460:
-        return th_maskny
-
-
-def test():
-    if type == 'pretrain':
-        domain_classifier.eval()
-    model.eval()
-
-    test_mape, test_rmse, test_mae = list(), list(), list()
-
-    for i, (feat, label) in enumerate(test_dataloader.get_iterator()):
-        feat = torch.FloatTensor(feat).to(device)
-        label = torch.FloatTensor(label).to(device)
-        mask = select_mask(feat.shape[2])
-        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
-            continue
-
-        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True, args.need_road)
-        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
-        label = label.reshape((-1, label.size(2)))
-
-        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
-                                                     maskp=mask)
-
-        test_mae.append(mae_test.item())
-        test_rmse.append(rmse_test.item())
-        test_mape.append(mape_test.item())
-
-    test_rmse = np.mean(test_rmse)
-    test_mae = np.mean(test_mae)
-    test_mape = np.mean(test_mape)
-
-    return test_mae, test_rmse, test_mape
-
 
 test_mae, test_rmse, test_mape = test()
-print(f'mae: {test_mae: .4f}, rmse: {test_rmse: .4f}, mape: {test_mape * 100: .4f}\n\n')
+log(f'mae: {test_mae: .4f}, rmse: {test_rmse: .4f}, mape: {test_mape * 100: .4f}\n\n')
 if args.c != "default":
     if args.need_remark == 1:
         record.update(record_id, get_timestamp(),
