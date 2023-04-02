@@ -1196,9 +1196,6 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
     y_true = torch.where(y_true < torch.tensor(1e-6, dtype=y_true.dtype, device=y_true.device),
                          torch.tensor(1, dtype=y_true.dtype, device=y_true.device), y_true)
     mape_loss = mae_loss / y_true
-    if maskp is not None:
-        mask = maskp
-    log(mae_loss, mae_loss)
     mae_loss = mae_loss * mask
     mse_loss = mse_loss * mask
     mape_loss = mape_loss * mask
