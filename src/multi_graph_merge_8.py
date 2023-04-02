@@ -28,7 +28,7 @@ from torch.utils.data import TensorDataset
 from torch.utils.tensorboard import SummaryWriter
 from model import *
 from funcs import *
-from params_ipynb import *
+from params import *
 from utils import *
 from multiprocessing import cpu_count
 import networkx as nx
