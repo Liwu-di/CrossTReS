@@ -1178,6 +1178,12 @@ def load_graphdata_channel1(args, feat_dir, time, scaler=None, visualize=False, 
 
 
 def masked_loss(y_pred, y_true, maskp=None, weight=None):
+    if weight is not None:
+        y_pred = y_pred if weight is None else y_pred[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))] * weight
+        y_true = y_true if weight is None else y_true[:, torch.from_numpy(maskp).to(y_true.device).reshape((-1))] * weight
+    else:
+        y_pred = y_pred[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
+        y_true = y_true[:, torch.from_numpy(maskp).to(y_true.device).reshape((-1))]
     mask_true = (y_true > 0.01).float()
     mask_pred = (y_pred > 0.01).float()
     mask = torch.mul(mask_true, mask_pred)
@@ -1185,30 +1191,16 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
         mask /= mask.mean()
     else:
         mask = (torch.ones(mask.shape) * 0.01).to(mask.device)
-    if weight is not None:
-        subtract = y_pred - y_true if weight is None else (y_pred - y_true)[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))] * weight
-        mask
-        mae_loss = torch.abs(subtract)
-        mse_loss = torch.square(subtract)
-        y_true = torch.where(y_true < torch.full_like(y_true, 0.01), torch.full_like(y_true, 0), y_true)
-        mape_loss = mae_loss / y_true if weight is None else mae_loss / y_true[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-        mape_loss = torch.where(torch.isnan(mape_loss), torch.full_like(mape_loss, 0), mape_loss)
-        mape_loss = torch.where(torch.isinf(mape_loss), torch.full_like(mape_loss, 0), mape_loss)
-    else:
-        subtract = y_pred - y_true
-        subtract = subtract[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-        mae_loss = torch.abs(subtract)
-        mse_loss = torch.square(subtract)
-        y_true = torch.where(y_true < torch.full_like(y_true, 0.01), torch.full_like(y_true, 0), y_true)
-        mape_loss = mae_loss / y_true[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-        mape_loss = torch.where(torch.isnan(mape_loss), torch.full_like(mape_loss, 0), mape_loss)
-        mape_loss = torch.where(torch.isinf(mape_loss), torch.full_like(mape_loss, 0), mape_loss)
-    log(mask.shape)
-    log([i.shape for i in [mae_loss, mse_loss, mape_loss]])
-    mae_loss = mae_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-    mse_loss = mse_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-    mape_loss = mape_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-    log([i.shape for i in [mae_loss, mse_loss, mape_loss]])
+    mae_loss = torch.abs(y_pred - y_true)
+    mse_loss = torch.square(y_pred - y_true)
+    y_true = torch.where(y_true < torch.tensor(1e-6, dtype=y_true.dtype, device=y_true.device),
+                         torch.tensor(1, dtype=y_true.dtype, device=y_true.device), y_true)
+    mape_loss = mae_loss / y_true
+    if maskp is not None:
+        mask = maskp
+    mae_loss = mae_loss * mask
+    mse_loss = mse_loss * mask
+    mape_loss = mape_loss * mask
     mae_loss[mae_loss != mae_loss] = 0
     mse_loss[mse_loss != mse_loss] = 0
     mape_loss[mape_loss != mape_loss] = 0
