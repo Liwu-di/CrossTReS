@@ -1202,7 +1202,7 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
     mse_loss[mse_loss != mse_loss] = 0
     mape_loss[mape_loss != mape_loss] = 0
 
-    return mae_loss.mean(0).sum(), torch.sqrt(mse_loss.mean(0).sum()), mape_loss.mean()
+    return mae_loss.mean(), torch.sqrt(mse_loss.mean()), mape_loss.mean()
 
 
 
