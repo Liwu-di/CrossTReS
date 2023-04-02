@@ -1410,14 +1410,14 @@ def select_mask(a):
         return th_maskchi
     elif a == 460:
         return th_maskny
-def test():
+def test(testloader):
     if type == 'pretrain':
         domain_classifier.eval()
     model.eval()
 
     test_mape, test_rmse, test_mae = list(), list(), list()
 
-    for i, (feat, label) in enumerate(test_dataloader.get_iterator()):
+    for i, (feat, label) in enumerate(testloader.get_iterator()):
         feat = torch.FloatTensor(feat).to(device)
         label = torch.FloatTensor(label).to(device)
         mask = select_mask(feat.shape[2])
@@ -1505,9 +1505,9 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
 
         if types == 'pretrain':
-            loss = mae_train + args.beta * (args.theta * domain_loss)
+            loss = (mae_train + args.beta * (args.theta * domain_loss)) * feat.shape[2]
         elif types == 'fine-tune':
-            loss = mae_train
+            loss = mae_train * feat.shape[2]
 
         loss.backward()
         optimizer.step()
@@ -1537,7 +1537,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         val_mae.append(mae_val.item())
         val_rmse.append(rmse_val.item())
 
-    test_mae, test_rmse, test_mape = test()
+    test_mae, test_rmse, test_mape = test(testloader)
     dur.append(time.time() - t0)
     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
@@ -1592,7 +1592,7 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader, type
             args.val = True
         if types == 'fine-tune':
             source_weights_ma = None
-        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types)
+        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types, testloader)
         log(f'Epoch {ep} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
         epoch += 1
         acc.append(train_acc)
