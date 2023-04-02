@@ -1442,13 +1442,13 @@ def test():
 
     return test_mae, test_rmse, test_mape
 
-def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl):
+def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl, types):
     t0 = time.time()
     train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
     train_correct = 0
 
     model.train()
-    if type == 'pretrain':
+    if types == 'pretrain':
         domain_classifier.train()
 
     for i, (feat, label) in enumerate(tdl.get_iterator()):
@@ -1469,15 +1469,15 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
 
         optimizer.zero_grad()
         if args.models not in ['DCRNN', 'STGCN', 'HA']:
-            if type == 'pretrain':
+            if types == 'pretrain':
                 pred, shared_pems04_feat, shared_pems07_feat, shared_pems08_feat = model(vec_pems04, vec_pems07,vec_pems08, feat, False)
-            elif type == 'fine-tune':
+            elif types == 'fine-tune':
                 pred = model(vec_pems04, vec_pems07, vec_pems08, feat, False)
 
             pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
             label = label.reshape((-1, label.size(2)))
 
-            if type == 'pretrain':
+            if types == 'pretrain':
                 pems04_pred = domain_classifier(shared_pems04_feat, constant, Reverse)
 
                 pems08_pred = domain_classifier(shared_pems08_feat, constant, Reverse)
@@ -1499,14 +1499,14 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
 
                 domain_loss = pems04_loss + pems08_loss
 
-        if type == 'pretrain':
+        if types == 'pretrain':
             train_correct = pems04_correct + pems08_correct
 
         mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
 
-        if type == 'pretrain':
+        if types == 'pretrain':
             loss = mae_train + args.beta * (args.theta * domain_loss)
-        elif type == 'fine-tune':
+        elif types == 'fine-tune':
             loss = mae_train
 
         loss.backward()
@@ -1515,12 +1515,12 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         train_mae.append(mae_train.item())
         train_rmse.append(rmse_train.item())
 
-        if type == 'pretrain':
+        if types == 'pretrain':
             train_acc.append(train_correct.item() / 855)
-        elif type == 'fine-tune':
+        elif types == 'fine-tune':
             train_acc.append(0)
 
-    if type == 'pretrain':
+    if types == 'pretrain':
         domain_classifier.eval()
     model.eval()
 
@@ -1542,9 +1542,9 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
 
-def model_train(args, model, optimizer, trainloader, valloader ,testloader):
+def model_train(args, model, optimizer, trainloader, valloader ,testloader, types):
     eps = 0
-    if type == 'pretrain':
+    if types == 'pretrain':
         p_bar = process_bar(final_prompt="预训练完成", unit="epoch")
         p_bar.process(0, 1, args.epoch)
         eps = args.epoch
@@ -1558,7 +1558,7 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader):
         fusion.train()
         scoring.train()
         # train embeddings
-        if type == 'pretrain':
+        if types == 'pretrain':
             emb_losses = []
             mmd_losses = []
             edge_losses = []
@@ -1587,23 +1587,23 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader):
         total_step = 200 * step_per_epoch
 
 
-        start_step = epoch * step_per_epoch
-        if type == 'fine-tune' and epoch > 1000:
+        start_step = ep * step_per_epoch
+        if types == 'fine-tune' and ep > 1000:
             args.val = True
-        if type == 'fine-tune':
+        if types == 'fine-tune':
             source_weights_ma = None
-        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader)
-        log(f'Epoch {epoch} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
+        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types)
+        log(f'Epoch {ep} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
         epoch += 1
         acc.append(train_acc)
         if mae_val <= best:
-            if type == 'fine-tune' and mae_val > 0.001:
+            if types == 'fine-tune' and mae_val > 0.001:
                 best = mae_val
                 state = dict([('model', copy.deepcopy(model.state_dict())),
                               ('optim', copy.deepcopy(optimizer.state_dict())),
                               ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
                 cnt = 0
-            elif type == 'pretrain':
+            elif types == 'pretrain':
                 best = mae_val
                 state = dict([('model', copy.deepcopy(model.state_dict())),
                               ('optim', copy.deepcopy(optimizer.state_dict())),
@@ -1611,7 +1611,7 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader):
                 cnt = 0
         else:
             cnt += 1
-        if type == 'pretrain':
+        if types == 'pretrain':
             p_bar.process(ep + 1, 1, args.epoch)
         else:
             p_bar.process(ep + 1, 1, args.fine_epoch)
@@ -1794,7 +1794,7 @@ else:
             model.load_state_dict(state['model'])
             optimizer.load_state_dict(state['optim'])
 
-        state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader)
+        state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader, "pretrain")
 
     log(f'Saving model to {pretrain_model_path} ...')
     torch.save(state, pretrain_model_path)
@@ -1829,7 +1829,7 @@ model.load_state_dict(state['model'])
 optimizer.load_state_dict(state['optim'])
 
 if args.labelrate != 0:
-    test_state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader)
+    test_state = model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader, "fine-tune")
     model.load_state_dict(test_state['model'])
     optimizer.load_state_dict(test_state['optim'])
 
