@@ -1182,7 +1182,7 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
     mask_pred = (y_pred > 0.01).float()
     mask = torch.mul(mask_true, mask_pred)
     if weight is not None:
-        subtract = y_pred - y_true if weight is None else (y_pred - y_true)[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))] * weight
+        subtract = y_pred - y_true if weight is None else (y_pred - y_true)[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))] * weight * 10
         mae_loss = torch.abs(subtract)
         mse_loss = torch.square(subtract)
         y_true = torch.where(y_true < torch.full_like(y_true, 0.01), torch.full_like(y_true, 0), y_true)
