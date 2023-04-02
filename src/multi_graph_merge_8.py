@@ -1442,7 +1442,7 @@ def test(testloader):
 
     return test_mae, test_rmse, test_mape
 
-def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl, types):
+def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl, types, tstl):
     t0 = time.time()
     train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
     train_correct = 0
@@ -1537,7 +1537,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         val_mae.append(mae_val.item())
         val_rmse.append(rmse_val.item())
 
-    test_mae, test_rmse, test_mape = test(testloader)
+    test_mae, test_rmse, test_mape = test(tstl)
     dur.append(time.time() - t0)
     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
