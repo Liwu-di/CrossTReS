@@ -1205,9 +1205,9 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
         mape_loss = torch.where(torch.isinf(mape_loss), torch.full_like(mape_loss, 0), mape_loss)
     log(mask.shape)
     log([i.shape for i in [mae_loss, mse_loss, mape_loss]])
-    mae_loss = mae_loss * mask[torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-    mse_loss = mse_loss * mask[torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-    mape_loss = mape_loss * mask[torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
+    mae_loss = mae_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
+    mse_loss = mse_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
+    mape_loss = mape_loss * mask[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
     log([i.shape for i in [mae_loss, mse_loss, mape_loss]])
     mae_loss[mae_loss != mae_loss] = 0
     mse_loss[mse_loss != mse_loss] = 0
