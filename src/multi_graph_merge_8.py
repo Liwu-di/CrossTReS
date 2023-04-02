@@ -1505,9 +1505,9 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
 
         if types == 'pretrain':
-            loss = (mae_train + args.beta * (args.theta * domain_loss)) * feat.shape[2]
+            loss = (mae_train + args.beta * (args.theta * domain_loss)) * 10
         elif types == 'fine-tune':
-            loss = mae_train * feat.shape[2]
+            loss = mae_train * 10
 
         loss.backward()
         optimizer.step()
@@ -1544,6 +1544,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
 
 def model_train(args, model, optimizer, trainloader, valloader ,testloader, types):
     eps = 0
+    cnt = 0
     if types == 'pretrain':
         p_bar = process_bar(final_prompt="预训练完成", unit="epoch")
         p_bar.process(0, 1, args.epoch)
