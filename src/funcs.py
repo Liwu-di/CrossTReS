@@ -1198,7 +1198,7 @@ def masked_loss(y_pred, y_true, maskp=None, weight=None):
     mape_loss = mae_loss / y_true
     if maskp is not None:
         mask = maskp
-    log(mask)
+    log(mae_loss, mae_loss)
     mae_loss = mae_loss * mask
     mse_loss = mse_loss * mask
     mape_loss = mape_loss * mask
