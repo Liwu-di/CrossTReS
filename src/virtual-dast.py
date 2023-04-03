@@ -565,11 +565,11 @@ p_bar.process(5, 1, 5)
 
 def select_mask(a):
     if a == 420:
-        return th_maskdc
+        return dcmask
     elif a == 476:
-        return th_maskchi
+        return chimask
     elif a == 460:
-        return th_maskny
+        return nymask
     else:
         return mask_virtual
 
@@ -773,13 +773,13 @@ for m in range(virtual_road.shape[0]):
 adj_virtual = torch.tensor(virtual_road).to(device)
 dc = np.load("./data/DC/{}DC_{}.npy".format(args.dataname, args.datatype))
 dcmask = dc.sum(0) > 0
-th_maskdc = torch.from_numpy(dcmask.reshape(1, 420)).to(device)
+
 chi = np.load("./data/CHI/{}CHI_{}.npy".format(args.dataname, args.datatype))
 chimask = chi.sum(0) > 0
-th_maskchi = torch.from_numpy(chimask.reshape(1, 476)).to(device)
+
 ny = np.load("./data/NY/{}NY_{}.npy".format(args.dataname, args.datatype))
 nymask = ny.sum(0) > 0
-th_maskny = torch.from_numpy(nymask.reshape(1, 460)).to(device)
+
 cur_dir = os.getcwd()
 if cur_dir[-2:] == 'sh':
     cur_dir = cur_dir[:-2]
