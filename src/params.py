@@ -155,6 +155,7 @@ def params():
     parser.add_argument("--fine_epoch", type=int, default=80)
     parser.add_argument("--need_road", type=bool, default=True)
     parser.add_argument("--v", type=bool, default=True)
+    parser.add_argument("--normal", type=int, default=1)
     args = parser.parse_args()
 
     if args.seed != -1:

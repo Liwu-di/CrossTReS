@@ -913,7 +913,8 @@ th_mask_virtual = torch.Tensor(mask_virtual.reshape(1, lng_virtual, lat_virtual)
 log("%d valid regions in virtual" % np.sum(mask_virtual))
 virtual_emb_label = masked_percentile_label(virtual_city.sum(0).reshape(-1), mask_virtual.reshape(-1))
 lag = [-6, -5, -4, -3, -2, -1]
-virtual_city, virtual_max, virtual_min = min_max_normalize(virtual_city)
+if args.normal == 1:
+    virtual_city, virtual_max, virtual_min = min_max_normalize(virtual_city)
 virtual_train_x, virtual_train_y, virtual_val_x, virtual_val_y, virtual_test_x, virtual_test_y \
     = split_x_y(virtual_city, lag, val_num=int(virtual_city.shape[0] / 6), test_num=int(virtual_city.shape[0] / 6))
 virtual_x = np.concatenate([virtual_train_x, virtual_val_x, virtual_test_x], axis=0)
