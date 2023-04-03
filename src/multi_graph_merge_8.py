@@ -1637,6 +1637,8 @@ def test(testdl):
         feat = torch.FloatTensor(feat).to(device)
         label = torch.FloatTensor(label).to(device)
         mask = select_mask(feat.shape[2])
+        if mask is None:
+            mask = mask_virtual
         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
             continue
 
