@@ -1626,8 +1626,83 @@ def select_mask(a):
 #     log("Optimization Finished!")
 #     return state
 
+def test(testdl):
+    if type == 'pretrain':
+        domain_classifier.eval()
+    model.eval()
 
-def train(dur, model, optimizer, total_step, start_step, need_road):
+    test_mape, test_rmse, test_mae = list(), list(), list()
+
+    for i, (feat, label) in enumerate(testdl.get_iterator()):
+        feat = torch.FloatTensor(feat).to(device)
+        label = torch.FloatTensor(label).to(device)
+        mask = select_mask(feat.shape[2])
+        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+            continue
+
+        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True, args.need_road)
+        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+        label = label.reshape((-1, label.size(2)))
+
+        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
+                                                     maskp=mask)
+
+        test_mae.append(mae_test.item())
+        test_rmse.append(rmse_test.item())
+        test_mape.append(mape_test.item())
+
+    test_rmse = np.mean(test_rmse)
+    test_mae = np.mean(test_mae)
+    test_mape = np.mean(test_mape)
+
+    return test_mae, test_rmse, test_mape
+
+
+def model_train(args, model, optimizer, tdl, vdl, testdl, type):
+    dur = []
+    epoch = 1
+    best = 999999999999999
+    acc = list()
+
+    step_per_epoch = train_dataloader.get_num_batch()
+    total_step = 200 * step_per_epoch
+
+    while epoch <= args.epoch:
+        start_step = epoch * step_per_epoch
+        if type == 'fine-tune' and epoch > 1000:
+            args.val = True
+        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model,
+                                                                                                    optimizer,
+                                                                                                    total_step,
+                                                                                                    start_step,
+                                                                                                    args.need_road,
+                                                                                                    tdl, vdl, testdl, type)
+        log(f'Epoch {epoch} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
+        epoch += 1
+        acc.append(train_acc)
+        if mae_val <= best:
+            if type == 'fine-tune' and mae_val > 0.001:
+                best = mae_val
+                state = dict([('model', copy.deepcopy(model.state_dict())),
+                              ('optim', copy.deepcopy(optimizer.state_dict())),
+                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+                cnt = 0
+            elif type == 'pretrain':
+                best = mae_val
+                state = dict([('model', copy.deepcopy(model.state_dict())),
+                              ('optim', copy.deepcopy(optimizer.state_dict())),
+                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+                cnt = 0
+        else:
+            cnt += 1
+        if cnt == args.patience or epoch > args.epoch:
+            print(f'Stop!!')
+            print(f'Avg acc: {np.mean(acc)}')
+            break
+    print("Optimization Finished!")
+    return state
+
+def train(dur, model, optimizer, total_step, start_step, need_road, tdl, vdl, testdl, type):
     t0 = time.time()
     train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
     train_correct = 0
@@ -1636,7 +1711,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road):
     if type == 'pretrain':
         domain_classifier.train()
 
-    for i, (feat, label) in enumerate(train_dataloader.get_iterator()):
+    for i, (feat, label) in enumerate(tdl.get_iterator()):
         mask = select_mask(feat.shape[2])
         Reverse = False
         if i > 0:
@@ -1707,7 +1782,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road):
         domain_classifier.eval()
     model.eval()
 
-    for i, (feat, label) in enumerate(val_dataloader.get_iterator()):
+    for i, (feat, label) in enumerate(vdl.get_iterator()):
         mask = select_mask(feat.shape[2])
         feat = torch.FloatTensor(feat).to(device)
         label = torch.FloatTensor(label).to(device)
@@ -1721,88 +1796,10 @@ def train(dur, model, optimizer, total_step, start_step, need_road):
         val_mae.append(mae_val.item())
         val_rmse.append(rmse_val.item())
 
-    test_mae, test_rmse, test_mape = test()
+    test_mae, test_rmse, test_mape = test(testdl)
     dur.append(time.time() - t0)
     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
-
-
-def test():
-    if type == 'pretrain':
-        domain_classifier.eval()
-    model.eval()
-
-    test_mape, test_rmse, test_mae = list(), list(), list()
-
-    for i, (feat, label) in enumerate(test_dataloader.get_iterator()):
-        feat = torch.FloatTensor(feat).to(device)
-        label = torch.FloatTensor(label).to(device)
-        mask = select_mask(feat.shape[2])
-        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
-            continue
-
-        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True, args.need_road)
-        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
-        label = label.reshape((-1, label.size(2)))
-
-        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
-                                                     maskp=mask)
-
-        test_mae.append(mae_test.item())
-        test_rmse.append(rmse_test.item())
-        test_mape.append(mape_test.item())
-
-    test_rmse = np.mean(test_rmse)
-    test_mae = np.mean(test_mae)
-    test_mape = np.mean(test_mape)
-
-    return test_mae, test_rmse, test_mape
-
-
-def model_train(args, model, optimizer):
-    dur = []
-    epoch = 1
-    best = 999999999999999
-    acc = list()
-
-    step_per_epoch = train_dataloader.get_num_batch()
-    total_step = 200 * step_per_epoch
-
-    while epoch <= args.epoch:
-        start_step = epoch * step_per_epoch
-        if type == 'fine-tune' and epoch > 1000:
-            args.val = True
-        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model,
-                                                                                                    optimizer,
-                                                                                                    total_step,
-                                                                                                    start_step,
-                                                                                                    args.need_road)
-        log(f'Epoch {epoch} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
-        epoch += 1
-        acc.append(train_acc)
-        if mae_val <= best:
-            if type == 'fine-tune' and mae_val > 0.001:
-                best = mae_val
-                state = dict([('model', copy.deepcopy(model.state_dict())),
-                              ('optim', copy.deepcopy(optimizer.state_dict())),
-                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
-                cnt = 0
-            elif type == 'pretrain':
-                best = mae_val
-                state = dict([('model', copy.deepcopy(model.state_dict())),
-                              ('optim', copy.deepcopy(optimizer.state_dict())),
-                              ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
-                cnt = 0
-        else:
-            cnt += 1
-        if cnt == args.patience or epoch > args.epoch:
-            print(f'Stop!!')
-            print(f'Avg acc: {np.mean(acc)}')
-            break
-    print("Optimization Finished!")
-    return state
-
-
 
 
 if os.path.exists(pretrain_model_path):
@@ -2018,7 +2015,7 @@ if args.labelrate != 0:
 
 
 
-test_mae, test_rmse, test_mape = test()
+test_mae, test_rmse, test_mape = test(test_dataloader)
 log(f'mae: {test_mae: .4f}, rmse: {test_rmse: .4f}, mape: {test_mape * 100: .4f}\n\n')
 if args.c != "default":
     if args.need_remark == 1:
