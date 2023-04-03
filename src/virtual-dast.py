@@ -706,6 +706,11 @@ def test(test_dataloader, type):
     return test_mae, test_rmse, test_mape
 
 
+def get_meta_weight(net):
+
+    return
+
+
 def model_train(args, model, optimizer, train_dataloader, val_dataloader, test_dataloader, type):
     dur = []
     epoch = 1
