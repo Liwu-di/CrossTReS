@@ -1588,14 +1588,14 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader, type
         step_per_epoch = trainloader.get_num_batch()
         total_step = 200 * step_per_epoch
 
-
+        source_weights_ma
         start_step = ep * step_per_epoch
         if types == 'fine-tune' and ep > 1000:
             args.val = True
         if types == 'fine-tune':
             source_weights_ma = None
         else:
-            log(source_weights_ma.mean())
+            log(source_weights_ma.mean() if source_weights_ma is not None else 0)
         mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types, testloader)
         log(f'Epoch {ep} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
         epoch += 1
