@@ -2,7 +2,7 @@ import networkx as nx
 import numpy as np
 import torch
 from multiprocessing import cpu_count
-from .funcs import get_adjacency_matrix
+from funcs import get_adjacency_matrix
 
 def generate_vector2(args):
     DATA_PATHS = {
