@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/3/31 16:48
 # @Author  : 银尘
-# @FileName: multi_graph_merge_8.py.py
+# @FileName: multi_graph_merge_8.py
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
 # @Info    : why create this file
@@ -1411,51 +1411,233 @@ def select_mask(a):
         return th_maskchi
     elif a == 460:
         return th_maskny
-def test(testloader):
-    if type == 'pretrain':
-        domain_classifier.eval()
-    model.eval()
+# def test(testloader):
+#     if type == 'pretrain':
+#         domain_classifier.eval()
+#     model.eval()
+#
+#     test_mape, test_rmse, test_mae = list(), list(), list()
+#
+#     for i, (feat, label) in enumerate(testloader.get_iterator()):
+#         feat = torch.FloatTensor(feat).to(device)
+#         label = torch.FloatTensor(label).to(device)
+#         mask = select_mask(feat.shape[2])
+#         if mask is None:
+#             mask = mask_virtual
+#         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+#             continue
+#
+#         pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
+#         pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+#         label = label.reshape((-1, label.size(2)))
+#
+#         mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=mask, weight=None)
+#
+#         test_mae.append(mae_test.item())
+#         test_rmse.append(rmse_test.item())
+#         test_mape.append(mape_test.item())
+#
+#     test_rmse = np.mean(test_rmse)
+#     test_mae = np.mean(test_mae)
+#     test_mape = np.mean(test_mape)
+#
+#     return test_mae, test_rmse, test_mape
+#
+# def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl, types, tstl):
+#     t0 = time.time()
+#     train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
+#     train_correct = 0
+#
+#     model.train()
+#     if types == 'pretrain':
+#         domain_classifier.train()
+#
+#     for i, (feat, label) in enumerate(tdl.get_iterator()):
+#         maskt = select_mask(feat.shape[2])
+#         if maskt is None:
+#             maskt = mask
+#         Reverse = False
+#         if i > 0:
+#             if train_acc[-1] > 0.333333:
+#                 Reverse = True
+#         p = float(i + start_step) / total_step
+#         constant = 2. / (1. + np.exp(-10 * p)) - 1
+#
+#         feat = torch.FloatTensor(feat).to(device)
+#         label = torch.FloatTensor(label).to(device)
+#         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+#             continue
+#
+#         optimizer.zero_grad()
+#         if args.models not in ['DCRNN', 'STGCN', 'HA']:
+#             if types == 'pretrain':
+#                 pred, shared_pems04_feat, shared_pems07_feat, shared_pems08_feat = model(vec_pems04, vec_pems07,vec_pems08, feat, False)
+#             elif types == 'fine-tune':
+#                 pred = model(vec_pems04, vec_pems07, vec_pems08, feat, False)
+#
+#             pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+#             label = label.reshape((-1, label.size(2)))
+#
+#             if types == 'pretrain':
+#                 pems04_pred = domain_classifier(shared_pems04_feat, constant, Reverse)
+#
+#                 pems08_pred = domain_classifier(shared_pems08_feat, constant, Reverse)
+#
+#                 pems04_label = 0 * torch.ones(pems04_pred.shape[0]).long().to(device)
+#
+#                 pems08_label = 1 * torch.ones(pems08_pred.shape[0]).long().to(device)
+#
+#                 pems04_pred_label = pems04_pred.max(1, keepdim=True)[1]
+#                 pems04_correct = pems04_pred_label.eq(pems04_label.view_as(pems04_pred_label)).sum()
+#
+#
+#                 pems08_pred_label = pems08_pred.max(1, keepdim=True)[1]
+#                 pems08_correct = pems08_pred_label.eq(pems08_label.view_as(pems08_pred_label)).sum()
+#
+#                 pems04_loss = domain_criterion(pems04_pred, pems04_label)
+#
+#                 pems08_loss = domain_criterion(pems08_pred, pems08_label)
+#
+#                 domain_loss = pems04_loss + pems08_loss
+#
+#         if types == 'pretrain':
+#             train_correct = pems04_correct + pems08_correct
+#
+#         mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
+#
+#         if types == 'pretrain':
+#             loss = (mae_train + args.beta * (args.theta * domain_loss))
+#         elif types == 'fine-tune':
+#             loss = mae_train
+#
+#         loss.backward()
+#         optimizer.step()
+#
+#         train_mae.append(mae_train.item())
+#         train_rmse.append(rmse_train.item())
+#
+#         if types == 'pretrain':
+#             train_acc.append(train_correct.item() / 855)
+#         elif types == 'fine-tune':
+#             train_acc.append(0)
+#
+#     if types == 'pretrain':
+#         domain_classifier.eval()
+#     model.eval()
+#
+#     for i, (feat, label) in enumerate(vdl.get_iterator()):
+#         feat = torch.FloatTensor(feat).to(device)
+#         label = torch.FloatTensor(label).to(device)
+#         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+#             continue
+#
+#         pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
+#         pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+#         label = label.reshape((-1, label.size(2)))
+#         mae_val, rmse_val, mape_val = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=maskt, weight=weight)
+#         val_mae.append(mae_val.item())
+#         val_rmse.append(rmse_val.item())
+#
+#     test_mae, test_rmse, test_mape = test(tstl)
+#     dur.append(time.time() - t0)
+#     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
+#         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
+#
+# def model_train(args, model, optimizer, trainloader, valloader ,testloader, types):
+#     eps = 0
+#     cnt = 0
+#     if types == 'pretrain':
+#         p_bar = process_bar(final_prompt="预训练完成", unit="epoch")
+#         p_bar.process(0, 1, args.epoch)
+#         eps = args.epoch
+#     else:
+#         p_bar = process_bar(final_prompt="微调完成", unit="epoch")
+#         p_bar.process(0, 1, args.fine_epoch)
+#         eps = args.fine_epoch
+#     for ep in range(eps):
+#         model.train()
+#         # mvgat.train()
+#         # fusion.train()
+#         # scoring.train()
+#         # # train embeddings
+#         # if types == 'pretrain':
+#         #     emb_losses = []
+#         #     mmd_losses = []
+#         #     edge_losses = []
+#         #     for emb_ep in range(5):
+#         #         loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
+#         #         emb_losses.append(loss_emb_)
+#         #         mmd_losses.append(loss_mmd_)
+#         #         edge_losses.append(loss_et_)
+#         #     with torch.no_grad():
+#         #         views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
+#         #         fused_emb_s, _ = fusion(views)
+#         #         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
+#         #         fused_emb_t, _ = fusion(views)
+#         #     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
+#         #     with torch.no_grad():
+#         #         source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
+#         #     if ep == 0:
+#         #         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
+#         #     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+#         dur = []
+#         epoch = 1
+#         best = 999999999999999
+#         acc = list()
+#
+#         step_per_epoch = trainloader.get_num_batch()
+#         total_step = 200 * step_per_epoch
+#
+#         source_weights_ma = None
+#         start_step = ep * step_per_epoch
+#         if types == 'fine-tune' and ep > 1000:
+#             args.val = True
+#         if types == 'fine-tune':
+#             source_weights_ma = None
+#         else:
+#             log(source_weights_ma.mean() if source_weights_ma is not None else 0)
+#         mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types, testloader)
+#         log(f'Epoch {ep} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
+#         epoch += 1
+#         acc.append(train_acc)
+#         if mae_val <= best:
+#             if types == 'fine-tune' and mae_val > 0.001:
+#                 best = mae_val
+#                 state = dict([('model', copy.deepcopy(model.state_dict())),
+#                               ('optim', copy.deepcopy(optimizer.state_dict())),
+#                               ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+#                 cnt = 0
+#             elif types == 'pretrain':
+#                 best = mae_val
+#                 state = dict([('model', copy.deepcopy(model.state_dict())),
+#                               ('optim', copy.deepcopy(optimizer.state_dict())),
+#                               ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
+#                 cnt = 0
+#         else:
+#             cnt += 1
+#         if types == 'pretrain':
+#             p_bar.process(ep + 1, 1, args.epoch)
+#         else:
+#             p_bar.process(ep + 1, 1, args.fine_epoch)
+#         if cnt == args.patience or epoch > args.epoch:
+#             log(f'Stop!!')
+#             log(f'Avg acc: {np.mean(acc)}')
+#             break
+#     log("Optimization Finished!")
+#     return state
 
-    test_mape, test_rmse, test_mae = list(), list(), list()
 
-    for i, (feat, label) in enumerate(testloader.get_iterator()):
-        feat = torch.FloatTensor(feat).to(device)
-        label = torch.FloatTensor(label).to(device)
-        mask = select_mask(feat.shape[2])
-        if mask is None:
-            mask = mask_virtual
-        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
-            continue
-
-        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
-        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
-        label = label.reshape((-1, label.size(2)))
-
-        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=mask, weight=None)
-
-        test_mae.append(mae_test.item())
-        test_rmse.append(rmse_test.item())
-        test_mape.append(mape_test.item())
-
-    test_rmse = np.mean(test_rmse)
-    test_mae = np.mean(test_mae)
-    test_mape = np.mean(test_mape)
-
-    return test_mae, test_rmse, test_mape
-
-def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask, tdl, vdl, types, tstl):
+def train(dur, model, optimizer, total_step, start_step, need_road):
     t0 = time.time()
     train_mae, val_mae, train_rmse, val_rmse, train_acc = list(), list(), list(), list(), list()
     train_correct = 0
 
     model.train()
-    if types == 'pretrain':
+    if type == 'pretrain':
         domain_classifier.train()
 
-    for i, (feat, label) in enumerate(tdl.get_iterator()):
-        maskt = select_mask(feat.shape[2])
-        if maskt is None:
-            maskt = mask
+    for i, (feat, label) in enumerate(train_dataloader.get_iterator()):
+        mask = select_mask(feat.shape[2])
         Reverse = False
         if i > 0:
             if train_acc[-1] > 0.333333:
@@ -1470,26 +1652,25 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
 
         optimizer.zero_grad()
         if args.models not in ['DCRNN', 'STGCN', 'HA']:
-            if types == 'pretrain':
-                pred, shared_pems04_feat, shared_pems07_feat, shared_pems08_feat = model(vec_pems04, vec_pems07,vec_pems08, feat, False)
-            elif types == 'fine-tune':
-                pred = model(vec_pems04, vec_pems07, vec_pems08, feat, False)
+            if type == 'pretrain':
+                pred, shared_pems04_feat, shared_pems07_feat, shared_pems08_feat = model(vec_pems04, vec_pems07,
+                                                                                         vec_pems08, feat, False,
+                                                                                         need_road)
+            elif type == 'fine-tune':
+                pred = model(vec_pems04, vec_pems07, vec_pems08, feat, False, need_road)
 
             pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
             label = label.reshape((-1, label.size(2)))
 
-            if types == 'pretrain':
+            if type == 'pretrain':
                 pems04_pred = domain_classifier(shared_pems04_feat, constant, Reverse)
-
                 pems08_pred = domain_classifier(shared_pems08_feat, constant, Reverse)
 
                 pems04_label = 0 * torch.ones(pems04_pred.shape[0]).long().to(device)
-
                 pems08_label = 1 * torch.ones(pems08_pred.shape[0]).long().to(device)
 
                 pems04_pred_label = pems04_pred.max(1, keepdim=True)[1]
                 pems04_correct = pems04_pred_label.eq(pems04_label.view_as(pems04_pred_label)).sum()
-
 
                 pems08_pred_label = pems08_pred.max(1, keepdim=True)[1]
                 pems08_correct = pems08_pred_label.eq(pems08_label.view_as(pems08_pred_label)).sum()
@@ -1500,14 +1681,15 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
 
                 domain_loss = pems04_loss + pems08_loss
 
-        if types == 'pretrain':
+        if type == 'pretrain':
             train_correct = pems04_correct + pems08_correct
 
-        mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label), maskp=maskt, weight=weight)
+        mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
+                                                        maskp=mask)
 
-        if types == 'pretrain':
-            loss = (mae_train + args.beta * (args.theta * domain_loss))
-        elif types == 'fine-tune':
+        if type == 'pretrain':
+            loss = mae_train + args.beta * (args.theta * domain_loss)
+        elif type == 'fine-tune':
             loss = mae_train
 
         loss.backward()
@@ -1516,98 +1698,96 @@ def train(dur, model, optimizer, total_step, start_step, need_road, weight, mask
         train_mae.append(mae_train.item())
         train_rmse.append(rmse_train.item())
 
-        if types == 'pretrain':
+        if type == 'pretrain':
             train_acc.append(train_correct.item() / 855)
-        elif types == 'fine-tune':
+        elif type == 'fine-tune':
             train_acc.append(0)
 
-    if types == 'pretrain':
+    if type == 'pretrain':
         domain_classifier.eval()
     model.eval()
 
-    for i, (feat, label) in enumerate(vdl.get_iterator()):
+    for i, (feat, label) in enumerate(val_dataloader.get_iterator()):
+        mask = select_mask(feat.shape[2])
         feat = torch.FloatTensor(feat).to(device)
         label = torch.FloatTensor(label).to(device)
         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
             continue
-
-        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True)
+        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True, need_road)
         pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
         label = label.reshape((-1, label.size(2)))
-        mae_val, rmse_val, mape_val = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),maskp=maskt, weight=weight)
+        mae_val, rmse_val, mape_val = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
+                                                  maskp=mask)
         val_mae.append(mae_val.item())
         val_rmse.append(rmse_val.item())
 
-    test_mae, test_rmse, test_mape = test(tstl)
+    test_mae, test_rmse, test_mape = test()
     dur.append(time.time() - t0)
     return np.mean(train_mae), np.mean(train_rmse), np.mean(val_mae), np.mean(
         val_rmse), test_mae, test_rmse, test_mape, np.mean(train_acc)
 
-def model_train(args, model, optimizer, trainloader, valloader ,testloader, types):
-    eps = 0
-    cnt = 0
-    if types == 'pretrain':
-        p_bar = process_bar(final_prompt="预训练完成", unit="epoch")
-        p_bar.process(0, 1, args.epoch)
-        eps = args.epoch
-    else:
-        p_bar = process_bar(final_prompt="微调完成", unit="epoch")
-        p_bar.process(0, 1, args.fine_epoch)
-        eps = args.fine_epoch
-    for ep in range(eps):
-        model.train()
-        # mvgat.train()
-        # fusion.train()
-        # scoring.train()
-        # # train embeddings
-        # if types == 'pretrain':
-        #     emb_losses = []
-        #     mmd_losses = []
-        #     edge_losses = []
-        #     for emb_ep in range(5):
-        #         loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
-        #         emb_losses.append(loss_emb_)
-        #         mmd_losses.append(loss_mmd_)
-        #         edge_losses.append(loss_et_)
-        #     with torch.no_grad():
-        #         views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
-        #         fused_emb_s, _ = fusion(views)
-        #         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
-        #         fused_emb_t, _ = fusion(views)
-        #     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
-        #     with torch.no_grad():
-        #         source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
-        #     if ep == 0:
-        #         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-        #     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
-        dur = []
-        epoch = 1
-        best = 999999999999999
-        acc = list()
 
-        step_per_epoch = trainloader.get_num_batch()
-        total_step = 200 * step_per_epoch
+def test():
+    if type == 'pretrain':
+        domain_classifier.eval()
+    model.eval()
 
-        source_weights_ma = None
-        start_step = ep * step_per_epoch
-        if types == 'fine-tune' and ep > 1000:
+    test_mape, test_rmse, test_mae = list(), list(), list()
+
+    for i, (feat, label) in enumerate(test_dataloader.get_iterator()):
+        feat = torch.FloatTensor(feat).to(device)
+        label = torch.FloatTensor(label).to(device)
+        mask = select_mask(feat.shape[2])
+        if torch.sum(scaler.inverse_transform(label)) <= 0.001:
+            continue
+
+        pred = model(vec_pems04, vec_pems07, vec_pems08, feat, True, args.need_road)
+        pred = pred.transpose(1, 2).reshape((-1, feat.size(2)))
+        label = label.reshape((-1, label.size(2)))
+
+        mae_test, rmse_test, mape_test = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
+                                                     maskp=mask)
+
+        test_mae.append(mae_test.item())
+        test_rmse.append(rmse_test.item())
+        test_mape.append(mape_test.item())
+
+    test_rmse = np.mean(test_rmse)
+    test_mae = np.mean(test_mae)
+    test_mape = np.mean(test_mape)
+
+    return test_mae, test_rmse, test_mape
+
+
+def model_train(args, model, optimizer):
+    dur = []
+    epoch = 1
+    best = 999999999999999
+    acc = list()
+
+    step_per_epoch = train_dataloader.get_num_batch()
+    total_step = 200 * step_per_epoch
+
+    while epoch <= args.epoch:
+        start_step = epoch * step_per_epoch
+        if type == 'fine-tune' and epoch > 1000:
             args.val = True
-        if types == 'fine-tune':
-            source_weights_ma = None
-        else:
-            log(source_weights_ma.mean() if source_weights_ma is not None else 0)
-        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model, optimizer, total_step, start_step, args.need_road, source_weights_ma, mask_virtual, trainloader, valloader, types, testloader)
-        log(f'Epoch {ep} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
+        mae_train, rmse_train, mae_val, rmse_val, mae_test, rmse_test, mape_test, train_acc = train(dur, model,
+                                                                                                    optimizer,
+                                                                                                    total_step,
+                                                                                                    start_step,
+                                                                                                    args.need_road)
+        log(f'Epoch {epoch} | acc_train: {train_acc: .4f} | mae_train: {mae_train: .4f} | rmse_train: {rmse_train: .4f} | mae_val: {mae_val: .4f} | rmse_val: {rmse_val: .4f} | mae_test: {mae_test: .4f} | rmse_test: {rmse_test: .4f} | mape_test: {mape_test: .4f} | Time(s) {dur[-1]: .4f}')
         epoch += 1
         acc.append(train_acc)
         if mae_val <= best:
-            if types == 'fine-tune' and mae_val > 0.001:
+            if type == 'fine-tune' and mae_val > 0.001:
                 best = mae_val
                 state = dict([('model', copy.deepcopy(model.state_dict())),
                               ('optim', copy.deepcopy(optimizer.state_dict())),
                               ('domain_classifier', copy.deepcopy(domain_classifier.state_dict()))])
                 cnt = 0
-            elif types == 'pretrain':
+            elif type == 'pretrain':
                 best = mae_val
                 state = dict([('model', copy.deepcopy(model.state_dict())),
                               ('optim', copy.deepcopy(optimizer.state_dict())),
@@ -1615,16 +1795,15 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader, type
                 cnt = 0
         else:
             cnt += 1
-        if types == 'pretrain':
-            p_bar.process(ep + 1, 1, args.epoch)
-        else:
-            p_bar.process(ep + 1, 1, args.fine_epoch)
         if cnt == args.patience or epoch > args.epoch:
-            log(f'Stop!!')
-            log(f'Avg acc: {np.mean(acc)}')
+            print(f'Stop!!')
+            print(f'Avg acc: {np.mean(acc)}')
             break
-    log("Optimization Finished!")
+    print("Optimization Finished!")
     return state
+
+
+
 
 if os.path.exists(pretrain_model_path):
     log(f'Loading pretrained model at {pretrain_model_path}')
