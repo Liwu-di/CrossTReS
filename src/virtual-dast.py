@@ -505,6 +505,64 @@ for i in range(len(virtual_graphs)):
 virtual_edges, virtual_edge_labels = graphs_to_edge_labels(virtual_graphs)
 
 
+class Scoring(nn.Module):
+    def __init__(self, emb_dim, source_mask, target_mask):
+        super().__init__()
+        self.emb_dim = emb_dim
+        self.score = nn.Sequential(nn.Linear(self.emb_dim, self.emb_dim // 2),
+                                   nn.ReLU(inplace=True),
+                                   nn.Linear(self.emb_dim // 2, self.emb_dim // 2))
+        self.source_mask = source_mask
+        self.target_mask = target_mask
+
+    def forward(self, source_emb, target_emb, source_mask, target_mask):
+        """
+        求源城市评分
+        注意这里求评分，是source的每一个区域对于目标城市整体
+        换句话说，是形参2的每一个区域，对于形参3整体
+        :param target_mask:
+        :param source_mask:
+        :param source_emb:
+        :param target_emb:
+        :return:
+        """
+        # target_context = tanh(self.score(target_emb[bool mask]).mean(0))
+        # 对于横向的进行求平均 460*64 -> 460*32 -> 207*32 -> 纵向求平均 1*32 代表所有目标城市
+        target_context = torch.tanh(self.score(target_emb[target_mask.view(-1).bool()]).mean(0))
+        source_trans_emb = self.score(source_emb)
+        source_score = (source_trans_emb * target_context).sum(1)
+        return F.relu(torch.tanh(source_score))[source_mask.view(-1).bool()]
+
+
+mmd = MMD_loss()
+num_gat_layers = 2
+in_dim = 14
+hidden_dim = 64
+emb_dim = 64
+num_heads = 2
+mmd_w = args.mmd_w
+et_w = args.et_w
+ma_param = args.ma_coef
+
+mvgat = MVGAT(len(source_graphs), num_gat_layers, in_dim, hidden_dim, emb_dim, num_heads, True).to(device)
+fusion = FusionModule(len(source_graphs), emb_dim, 0.8).to(device)
+scoring = Scoring(emb_dim, th_mask_virtual, th_mask_target).to(device)
+edge_disc = EdgeTypeDiscriminator(len(source_graphs), emb_dim).to(device)
+mmd = MMD_loss()
+
+emb_param_list = list(mvgat.parameters()) + list(fusion.parameters()) + list(edge_disc.parameters())
+emb_optimizer = optim.Adam(emb_param_list, lr=args.learning_rate, weight_decay=args.weight_decay)
+mvgat_optimizer = optim.Adam(list(mvgat.parameters()) + list(fusion.parameters()), lr=args.learning_rate,
+                             weight_decay=args.weight_decay)
+# 元学习部分
+meta_optimizer = optim.Adam(scoring.parameters(), lr=args.outerlr, weight_decay=args.weight_decay)
+best_val_rmse = 999
+best_test_rmse = 999
+best_test_mae = 999
+best_test_mape = 999
+p_bar.process(5, 1, 5)
+
+
 def select_mask(a):
     if a == 420:
         return th_maskdc
@@ -512,6 +570,8 @@ def select_mask(a):
         return th_maskchi
     elif a == 460:
         return th_maskny
+    else:
+        return mask_virtual
 
 
 def train(dur, model, optimizer, total_step, start_step, need_road, train_dataloader,val_dataloader, testdl, type):
