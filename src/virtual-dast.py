@@ -706,6 +706,97 @@ def test(test_dataloader, type):
     return test_mae, test_rmse, test_mape
 
 
+def net_fix(source, y, weight, mask, fast_weights, bn_vars, net):
+    pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
+    if len(pred_source.shape) == 4:  # STResNet
+        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
+                      mask.view(-1).bool()]
+        loss_source = (loss_source * weight).mean(0).sum()
+    elif len(pred_source.shape) == 3:  # STNet
+        y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+        loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
+        loss_source = loss_source.mean(0).sum()
+    fast_loss = loss_source
+    grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
+    for name, grad in zip(fast_weights.keys(), grads):
+        fast_weights[name] = fast_weights[name] - args.innerlr * grad
+    return fast_loss, fast_weights, bn_vars
+
+
+def meta_train_epoch(s_embs, t_embs, net):
+    meta_query_losses = []
+    for meta_ep in range(args.outeriter):
+        fast_losses = []
+        fast_weights, bn_vars = get_weights_bn_vars(net)
+        source_weights = scoring(s_embs, t_embs, th_mask_virtual, th_mask_target)
+        # inner loop on source, pre-train with weights
+        for meta_it in range(args.sinneriter):
+            s_x1, s_y1 = batch_sampler((torch.Tensor(virtual_train_x), torch.Tensor(virtual_train_y)),
+                                       args.meta_batch_size)
+            s_x1 = s_x1.to(device)
+            s_y1 = s_y1.to(device)
+            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_virtual, fast_weights,
+                                                       bn_vars)
+            fast_losses.append(fast_loss.item())
+
+        # inner loop on target, simulate fine-tune
+        # 模拟微调和源训练都是在训练net预测网络，并没有提及权重和特征
+        for meta_it in range(args.tinneriter):
+            t_x, t_y = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
+            t_x = t_x.to(device)
+            t_y = t_y.to(device)
+            pred_t = net.functional_forward(t_x, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
+            if len(pred_t.shape) == 4:  # STResNet
+                loss_t = ((pred_t - t_y) ** 2).view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
+                # log(loss_source.shape)
+                loss_t = loss_t.mean(0).sum()
+            elif len(pred_t.shape) == 3:  # STNet
+                t_y = t_y.view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
+                # log(t_y.shape)
+                loss_t = ((pred_t - t_y) ** 2)  # .view(1, 1, -1))
+                # log(loss_t.shape)
+                # log(loss_source.shape)
+                # log(source_weights.shape)
+                loss_t = loss_t.mean(0).sum()
+            fast_loss = loss_t
+            fast_losses.append(fast_loss.item())  #
+            grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
+            for name, grad in zip(fast_weights.keys(), grads):
+                fast_weights[name] = fast_weights[name] - args.innerlr * grad
+                # fast_weights[name].add_(grad, alpha = -args.innerlr)
+
+        q_losses = []
+        target_iter = max(args.sinneriter, args.tinneriter)
+        for k in range(3):
+            # query loss
+            x_q = None
+            y_q = None
+            temp_mask = None
+
+            x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
+            temp_mask = th_mask_target
+            x_q = x_q.to(device)
+            y_q = y_q.to(device)
+            pred_q = net.functional_forward(x_q, temp_mask.bool(), fast_weights, bn_vars, bn_training=True)
+            if len(pred_q.shape) == 4:  # STResNet
+                loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
+                loss = loss.mean(0).sum()
+            elif len(pred_q.shape) == 3:  # STNet
+                y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
+                loss = ((pred_q - y_q) ** 2).mean(0).sum()
+            q_losses.append(loss)
+        q_loss = torch.stack(q_losses).mean()
+        weights_mean = (source_weights ** 2).mean()
+        meta_loss = q_loss + weights_mean * args.weight_reg
+        meta_optimizer.zero_grad()
+        meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
+        torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
+        meta_optimizer.step()
+        meta_query_losses.append(q_loss.item())
+    return np.mean(meta_query_losses)
+
+
+
 def get_meta_weight(net):
 
     return
