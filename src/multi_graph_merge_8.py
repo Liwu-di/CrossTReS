@@ -1588,7 +1588,7 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader, type
         step_per_epoch = trainloader.get_num_batch()
         total_step = 200 * step_per_epoch
 
-        source_weights_ma
+        source_weights_ma = None
         start_step = ep * step_per_epoch
         if types == 'fine-tune' and ep > 1000:
             args.val = True
