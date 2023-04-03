@@ -1556,30 +1556,30 @@ def model_train(args, model, optimizer, trainloader, valloader ,testloader, type
         eps = args.fine_epoch
     for ep in range(eps):
         model.train()
-        mvgat.train()
-        fusion.train()
-        scoring.train()
-        # train embeddings
-        if types == 'pretrain':
-            emb_losses = []
-            mmd_losses = []
-            edge_losses = []
-            for emb_ep in range(5):
-                loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
-                emb_losses.append(loss_emb_)
-                mmd_losses.append(loss_mmd_)
-                edge_losses.append(loss_et_)
-            with torch.no_grad():
-                views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
-                fused_emb_s, _ = fusion(views)
-                views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
-                fused_emb_t, _ = fusion(views)
-            avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
-            with torch.no_grad():
-                source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
-            if ep == 0:
-                source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-            source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+        # mvgat.train()
+        # fusion.train()
+        # scoring.train()
+        # # train embeddings
+        # if types == 'pretrain':
+        #     emb_losses = []
+        #     mmd_losses = []
+        #     edge_losses = []
+        #     for emb_ep in range(5):
+        #         loss_emb_, loss_mmd_, loss_et_ = train_emb_epoch2()
+        #         emb_losses.append(loss_emb_)
+        #         mmd_losses.append(loss_mmd_)
+        #         edge_losses.append(loss_et_)
+        #     with torch.no_grad():
+        #         views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
+        #         fused_emb_s, _ = fusion(views)
+        #         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
+        #         fused_emb_t, _ = fusion(views)
+        #     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t, model)
+        #     with torch.no_grad():
+        #         source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
+        #     if ep == 0:
+        #         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
+        #     source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
         dur = []
         epoch = 1
         best = 999999999999999
