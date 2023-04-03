@@ -1715,6 +1715,8 @@ def train(dur, model, optimizer, total_step, start_step, need_road, tdl, vdl, te
 
     for i, (feat, label) in enumerate(tdl.get_iterator()):
         mask = select_mask(feat.shape[2])
+        if mask is None:
+            mask = mask_virtual
         Reverse = False
         if i > 0:
             if train_acc[-1] > 0.333333:
@@ -1786,6 +1788,8 @@ def train(dur, model, optimizer, total_step, start_step, need_road, tdl, vdl, te
 
     for i, (feat, label) in enumerate(vdl.get_iterator()):
         mask = select_mask(feat.shape[2])
+        if mask is None:
+            mask = mask_virtual
         feat = torch.FloatTensor(feat).to(device)
         label = torch.FloatTensor(label).to(device)
         if torch.sum(scaler.inverse_transform(label)) <= 0.001:
