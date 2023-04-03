@@ -1765,7 +1765,7 @@ def train(dur, model, optimizer, total_step, start_step, need_road, tdl, vdl, te
 
         mae_train, rmse_train, mape_train = masked_loss(scaler.inverse_transform(pred), scaler.inverse_transform(label),
                                                         maskp=mask)
-        print(mae_train, rmse_train, mape_train)
+        #print(mae_train, rmse_train, mape_train)
         if type == 'pretrain':
             loss = mae_train + args.beta * (args.theta * domain_loss)
         elif type == 'fine-tune':
