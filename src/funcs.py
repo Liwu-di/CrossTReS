@@ -1184,12 +1184,8 @@ def load_graphdata_channel1(args, feat_dir, time, scaler=None, visualize=False, 
 
 
 def masked_loss(y_pred, y_true, maskp=None, weight=None):
-    if weight is not None:
-        y_pred = y_pred if weight is None else y_pred[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))] * weight
-        y_true = y_true if weight is None else y_true[:, torch.from_numpy(maskp).to(y_true.device).reshape((-1))] * weight
-    else:
-        y_pred = y_pred[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
-        y_true = y_true[:, torch.from_numpy(maskp).to(y_true.device).reshape((-1))]
+    y_pred = y_pred[:, torch.from_numpy(maskp).to(y_pred.device).reshape((-1))]
+    y_true = y_true[:, torch.from_numpy(maskp).to(y_true.device).reshape((-1))]
     mask_true = (y_true > 0.01).float()
     mask_pred = (y_pred > 0.01).float()
     mask = torch.mul(mask_true, mask_pred)
