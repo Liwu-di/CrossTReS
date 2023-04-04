@@ -475,11 +475,11 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
             count = 0
             pred_source = net.functional_forward(x, mask.bool(), fast_weights, bn_vars, bn_training=True)
             if len(pred_source.shape) == 4:  # STResNet
-                loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
+                loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
                               mask.view(-1).bool()]
                 loss_source = (loss_source * weights).mean(0).sum()
             elif len(pred_source.shape) == 3:  # STNet
-                y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+                y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
                 loss_source = (((pred_source - y) ** 2) * weights.view(1, 1, -1))
                 loss_source = loss_source.mean(0).sum()
             fast_loss = loss_source
