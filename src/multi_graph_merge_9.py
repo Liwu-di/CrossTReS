@@ -471,7 +471,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     for i, (x, y) in enumerate(loader_):
         x = x.to(device)
         y = y.to(device)
-        if count % train and count != 0:
+        if count % train == 0 and count != 0:
             count = 0
             pred_source = net.functional_forward(x, mask.bool(), fast_weights, bn_vars, bn_training=True)
             if len(pred_source.shape) == 4:  # STResNet
