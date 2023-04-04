@@ -448,7 +448,7 @@ log()
 def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
     pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
     if len(pred_source.shape) == 4:  # STResNet
-        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
+        loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
                       mask.view(-1).bool()]
         loss_source = (loss_source * weight).mean(0).sum()
     elif len(pred_source.shape) == 3:# STNet
