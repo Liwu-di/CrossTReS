@@ -661,11 +661,11 @@ for ep in range(num_epochs):
                                            str(avg_source_loss3) if args.need_third == 1 else str(0), str(avg_target_loss)))
 
     net.eval()
-    rmse_val, mae_val, target_val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_s_val, mae_s_val, source_val_losses = evaluate(net, source_loader, spatial_mask=th_mask_source)
-    rmse_s_val2, mae_s_val2, source_val_losses2 = evaluate(net, source_loader2, spatial_mask=th_mask_source2)
+    rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+    rmse_s_val, mae_s_val, source_val_losses, _ = evaluate(net, source_loader, spatial_mask=th_mask_source)
+    rmse_s_val2, mae_s_val2, source_val_losses2, _ = evaluate(net, source_loader2, spatial_mask=th_mask_source2)
     if args.need_third == 1:
-        rmse_s_val3, mae_s_val3, source_val_losses3 = evaluate(net, source_loader3, spatial_mask=th_mask_source3)
+        rmse_s_val3, mae_s_val3, source_val_losses3, _ = evaluate(net, source_loader3, spatial_mask=th_mask_source3)
 
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
