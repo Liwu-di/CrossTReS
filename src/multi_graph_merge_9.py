@@ -485,7 +485,7 @@ def net_fix(source, y, weight, mask, fast_weights, bn_vars):
                       mask.view(-1).bool()]
         loss_source = (loss_source * weight).mean(0).sum()
     elif len(pred_source.shape) == 3:  # STNet
-        y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+        y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
         loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
         loss_source = loss_source.mean(0).sum()
     fast_loss = loss_source
