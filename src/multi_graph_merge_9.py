@@ -665,13 +665,13 @@ for ep in range(num_epochs):
         source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
 
     source_loss = meta_train(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
-                             num_iters=args.pretrain_iter)
+                             num_iters=args.pretrain_iter, train=args.train_number)
     source_loss2 = meta_train(net, source_loader2, pred_optimizer, weights=source_weights_ma2, mask=th_mask_source2,
-                              num_iters=args.pretrain_iter)
+                              num_iters=args.pretrain_iter, train=args.train_number)
     if args.need_third == 1:
         source_loss3 = meta_train(net, source_loader3, pred_optimizer, weights=source_weights_ma3,
                                   mask=th_mask_source3,
-                                  num_iters=args.pretrain_iter)
+                                  num_iters=args.pretrain_iter, train=args.train_number)
     avg_source_loss = np.mean(source_loss)
     avg_source_loss2 = np.mean(source_loss2)
     if args.need_third == 1:

@@ -123,6 +123,7 @@ def params():
     parser.add_argument("--geo_rate", type=float, default=1.0, help="rate of geo")
     parser.add_argument("--time_rate", type=float, default=1.0, help="rate of time")
     parser.add_argument("--machine_code", type=str, default="", help="code of machine")
+    parser.add_argument("--train_number", type=int, default=3)
 
     parser.add_argument('--dataset', type=str, default='8', help='dataset')
     parser.add_argument('--seeds', type=int, default=0, help='seed')
