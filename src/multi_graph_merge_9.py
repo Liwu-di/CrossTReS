@@ -658,7 +658,7 @@ for ep in range(num_epochs):
         avg_source_loss3 = np.mean(source_loss3)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     log("s1 {} ,s2 {}, s3{}, tar{}".format(str(avg_source_loss), str(avg_source_loss2),
-                                           str(avg_source_loss3), str(avg_target_loss)))
+                                           str(avg_source_loss3) if args.need_third == 1 else str(0), str(avg_target_loss)))
 
     net.eval()
     rmse_val, mae_val, target_val_losses = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
