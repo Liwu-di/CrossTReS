@@ -470,7 +470,6 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
             optimizer_.step()
             epoch_loss.append(fast_loss.item())
         else:
-            log(x.shape, y.shape, mask.shape)
             fast_loss, fast_weights, bn_vars = net_fix(x, y, weights, mask, fast_weights,
                                                        bn_vars)
             fast_losses.append(fast_loss.item())
