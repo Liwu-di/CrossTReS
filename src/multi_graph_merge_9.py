@@ -492,6 +492,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
             fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights, mask, fast_weights,
                                                        bn_vars)
             fast_losses.append(fast_loss.item())
+            count = count + 1
         if num_iters is not None and num_iters == i:
             break
     return epoch_loss
