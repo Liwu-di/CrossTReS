@@ -489,7 +489,7 @@ def net_fix(source, y, weight, mask, fast_weights, bn_vars):
         loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
         loss_source = loss_source.mean(0).sum()
     fast_loss = loss_source
-    grads = torch.autograd.grad(fast_loss, fast_weights.values())
+    grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
     for name, grad in zip(fast_weights.keys(), grads):
         fast_weights[name] = fast_weights[name] - args.innerlr * grad
     return fast_loss, fast_weights, bn_vars
