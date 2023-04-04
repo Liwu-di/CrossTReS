@@ -443,6 +443,25 @@ cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
 log("[%.2fs]Pretraining embedding, source cvscore %.4f, source2 cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_s2, cvscore_t))
 log()
+
+
+def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
+    pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
+    if len(pred_source.shape) == 4:  # STResNet
+        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
+                      mask.view(-1).bool()]
+        loss_source = (loss_source * weight).mean(0).sum()
+    elif len(pred_source.shape) == 3:# STNet
+        y = y.view(source.shape[0], 1, -1)[:, :, mask.view(-1).bool()]
+        loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
+        loss_source = loss_source.mean(0).sum()
+    fast_loss = loss_source
+    grads = torch.autograd.grad(fast_loss, fast_weights.values())
+    for name, grad in zip(fast_weights.keys(), grads):
+        fast_weights[name] = fast_weights[name] - args.innerlr * grad
+    return fast_loss, fast_weights, bn_vars
+
+
 def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, train=5, test=1):
     fast_losses = []
     count = 0
@@ -470,7 +489,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
             optimizer_.step()
             epoch_loss.append(fast_loss.item())
         else:
-            fast_loss, fast_weights, bn_vars = net_fix(x, y, weights, mask, fast_weights,
+            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights, mask, fast_weights,
                                                        bn_vars)
             fast_losses.append(fast_loss.item())
         if num_iters is not None and num_iters == i:
