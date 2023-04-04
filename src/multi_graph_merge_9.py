@@ -462,7 +462,7 @@ def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
     return fast_loss, fast_weights, bn_vars
 
 
-def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, train=3, test=1):
+def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, train=2, test=1):
     fast_losses = []
     count = 0
     fast_weights, bn_vars = get_weights_bn_vars(net)
