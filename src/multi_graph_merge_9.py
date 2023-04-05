@@ -468,7 +468,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     fast_weights, bn_vars = get_weights_bn_vars(net)
     net_.train()
     epoch_loss = []
-    num_batch = int(len(enumerate(loader_)) / 2)
+    num_batch = int(len(list(enumerate(loader_))) / 2)
 
     for i, (x, y) in enumerate(loader_):
         x = x.to(device)
