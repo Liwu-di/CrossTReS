@@ -462,6 +462,68 @@ def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
     return fast_loss, fast_weights, bn_vars
 
 
+# def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, target_loader=None, target_mask=None):
+#     fast_losses = []
+#     count = 0
+#     fast_weights, bn_vars = get_weights_bn_vars(net)
+#     net_.train()
+#     epoch_loss = []
+#     length = len(list(enumerate(loader_[0])))
+#     for eps in range(length):
+#         id, (x, y) = list(enumerate(loader_[0]))[eps]
+#         x = x.to(device)
+#         y = y.to(device)
+#         fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[0], mask[0], fast_weights,
+#                                                     bn_vars)
+#
+#         id, (x, y) = list(enumerate(loader_[1]))[eps]
+#         x = x.to(device)
+#         y = y.to(device)
+#         fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[1], mask[1], fast_weights,
+#                                                     bn_vars)
+#         if loader_[2] is not None:
+#             id, (x, y) = list(enumerate(loader_[2]))[eps]
+#             x = x.to(device)
+#             y = y.to(device)
+#             fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
+#                                                         bn_vars)
+#         tar = list(enumerate(target_loader))
+#         id, (x, y) = tar[eps % len(tar)]
+#         x = x.to(device)
+#         y = y.to(device)
+#         pred_source = net.functional_forward(x, spatial_mask=target_mask.bool(), weights=fast_weights, bn_vars=bn_vars, bn_training=True)
+#         if len(pred_source.shape) == 4:  # STResNet
+#             loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
+#                           target_mask.view(-1).bool()]
+#             loss_source = loss_source.mean(0).sum()
+#         elif len(pred_source.shape) == 3:  # STNet
+#             y = y.view(y.shape[0], 1, -1)[:, :, target_mask.view(-1).bool()]
+#             loss_source = ((pred_source - y) ** 2)
+#             loss_source = loss_source.mean(0).sum()
+#         fast_loss = loss_source
+#
+#         optimizer_.zero_grad()
+#         fast_loss.backward()
+#         torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+#         optimizer_.step()
+#         epoch_loss.append(fast_loss.item())
+#     return epoch_loss
+
+def predict_weights_bnvars(x, y, mask, weightss, varss):
+    pred_source = net.functional_forward(x, spatial_mask=mask.bool(), weights=weightss, bn_vars=varss,
+                                         bn_training=True)
+    if len(pred_source.shape) == 4:  # STResNet
+        loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
+                      mask.view(-1).bool()]
+        loss_source = loss_source.mean(0).sum()
+    elif len(pred_source.shape) == 3:  # STNet
+        y = y.view(y.shape[0], 1, -1)[:, :, mask.view(-1).bool()]
+        loss_source = ((pred_source - y) ** 2)
+        loss_source = loss_source.mean(0).sum()
+    fast_loss = loss_source
+    return fast_loss
+
+
 def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, target_loader=None, target_mask=None):
     fast_losses = []
     count = 0
@@ -470,43 +532,63 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     epoch_loss = []
     length = len(list(enumerate(loader_[0])))
     for eps in range(length):
-        id, (x, y) = list(enumerate(loader_[0]))[eps]
-        x = x.to(device)
-        y = y.to(device)
-        fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[0], mask[0], fast_weights,
-                                                    bn_vars)
-
-        id, (x, y) = list(enumerate(loader_[1]))[eps]
-        x = x.to(device)
-        y = y.to(device)
-        fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[1], mask[1], fast_weights,
-                                                    bn_vars)
-        if loader_[2] is not None:
-            id, (x, y) = list(enumerate(loader_[2]))[eps]
+        if count < 5:
+            count = count + 1
+            id, (x, y) = list(enumerate(loader_[0]))[eps]
             x = x.to(device)
             y = y.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
+            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[0], mask[0], fast_weights,
                                                         bn_vars)
-        tar = list(enumerate(target_loader))
-        id, (x, y) = tar[eps % len(tar)]
-        x = x.to(device)
-        y = y.to(device)
-        pred_source = net.functional_forward(x, spatial_mask=target_mask.bool(), weights=fast_weights, bn_vars=bn_vars, bn_training=True)
-        if len(pred_source.shape) == 4:  # STResNet
-            loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
-                          target_mask.view(-1).bool()]
-            loss_source = loss_source.mean(0).sum()
-        elif len(pred_source.shape) == 3:  # STNet
-            y = y.view(y.shape[0], 1, -1)[:, :, target_mask.view(-1).bool()]
-            loss_source = ((pred_source - y) ** 2)
-            loss_source = loss_source.mean(0).sum()
-        fast_loss = loss_source
 
-        optimizer_.zero_grad()
-        fast_loss.backward()
-        torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
-        optimizer_.step()
-        epoch_loss.append(fast_loss.item())
+            id, (x, y) = list(enumerate(loader_[1]))[eps]
+            x = x.to(device)
+            y = y.to(device)
+            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[1], mask[1], fast_weights,
+                                                        bn_vars)
+            if loader_[2] is not None:
+                id, (x, y) = list(enumerate(loader_[2]))[eps]
+                x = x.to(device)
+                y = y.to(device)
+                fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
+                                                            bn_vars)
+        else:
+            count = count + 1
+            if count > 50:
+                count = 0
+            id, (x, y) = list(enumerate(loader_[0]))[eps]
+            x = x.to(device)
+            y = y.to(device)
+            fast_weights, bn_vars = get_weights_bn_vars(net)
+            fast_loss = predict_weights_bnvars(x, y, mask[0], fast_weights, bn_vars)
+            optimizer_.zero_grad()
+            fast_loss.backward()
+            torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+            optimizer_.step()
+            epoch_loss.append(fast_loss.item())
+
+            id, (x, y) = list(enumerate(loader_[1]))[eps]
+            x = x.to(device)
+            y = y.to(device)
+            fast_weights, bn_vars = get_weights_bn_vars(net)
+            fast_loss = predict_weights_bnvars(x, y, mask[1], fast_weights, bn_vars)
+            optimizer_.zero_grad()
+            fast_loss.backward()
+            torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+            optimizer_.step()
+            epoch_loss.append(fast_loss.item())
+
+            if loader_[2] is not None:
+                id, (x, y) = list(enumerate(loader_[2]))[eps]
+                x = x.to(device)
+                y = y.to(device)
+                fast_weights, bn_vars = get_weights_bn_vars(net)
+                fast_loss = predict_weights_bnvars(x, y, mask[2], fast_weights, bn_vars)
+                optimizer_.zero_grad()
+                fast_loss.backward()
+                torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+                optimizer_.step()
+                epoch_loss.append(fast_loss.item())
+
     return epoch_loss
 
 
