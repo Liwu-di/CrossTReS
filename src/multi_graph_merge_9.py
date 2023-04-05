@@ -454,7 +454,7 @@ def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
     elif len(pred_source.shape) == 3:  # STNet
         y = y.view(source.shape[0], 1, -1)[:, :, mask.view(-1).bool()]
         loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
-        loss_source = loss_source.mean(0).sum()
+        loss_source = (loss_source * weight).mean(0).sum()
     fast_loss = loss_source
     grads = torch.autograd.grad(fast_loss, fast_weights.values())
     for name, grad in zip(fast_weights.keys(), grads):
@@ -462,71 +462,48 @@ def net_fix2(source, y, weight, mask, fast_weights, bn_vars):
     return fast_loss, fast_weights, bn_vars
 
 
-def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, train=2, test=1):
+def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None, target_loader=None, target_mask=None):
     fast_losses = []
     count = 0
     fast_weights, bn_vars = get_weights_bn_vars(net)
     net_.train()
     epoch_loss = []
-    num_batch = int(len(list(enumerate(loader_))) / 2)
-
-    for i, (x, y) in enumerate(loader_):
+    length = len(list(enumerate(loader_[0])))
+    for eps in range(length):
+        id, (x, y) = list(enumerate(net_[0]))[eps]
         x = x.to(device)
         y = y.to(device)
-        if i < num_batch:
-            out = net_(x, spatial_mask=mask.bool())
-            if len(out.shape) == 4:  # STResNet
-                eff_batch_size = y.shape[0]
-                loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-                # log("loss", loss.shape)
-                if weights is not None:
-                    loss = (loss * weights)
-                    # log("weights", weights.shape)
-                    # log("loss * weights", loss.shape)
-                    loss = loss.mean(0).sum()
-                else:
-                    loss = loss.mean(0).sum()
-            elif len(out.shape) == 3:  # STNet
-                eff_batch_size = y.shape[0]
-                y = y.view(eff_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-                loss = ((out - y) ** 2)
-                if weights is not None:
-                    # log(loss.shape)
-                    # log(weights.shape)
-                    loss = (loss * weights.view(1, 1, -1)).mean(0).sum()
-                else:
-                    loss = loss.mean(0).sum()
-            optimizer_.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
-            optimizer_.step()
-            epoch_loss.append(loss.item())
-        else:
-            if count % train == 0 and count != 0:
-                count = 0
-                pred_source = net.functional_forward(x, mask.bool(), fast_weights, bn_vars, bn_training=True)
-                if len(pred_source.shape) == 4:  # STResNet
-                    loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
-                                  mask.view(-1).bool()]
-                    loss_source = (loss_source * weights).mean(0).sum()
-                elif len(pred_source.shape) == 3:  # STNet
-                    y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-                    loss_source = (((pred_source - y) ** 2) * weights.view(1, 1, -1))
-                    loss_source = loss_source.mean(0).sum()
-                fast_loss = loss_source
+        fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[0], mask[0], fast_weights,
+                                                    bn_vars)
 
-                optimizer_.zero_grad()
-                fast_loss.backward()
-                torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
-                optimizer_.step()
-                epoch_loss.append(fast_loss.item())
-            else:
-                fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights, mask, fast_weights,
-                                                            bn_vars)
-                fast_losses.append(fast_loss.item())
-                count = count + 1
-        if num_iters is not None and num_iters == i:
-            break
+        id, (x, y) = list(enumerate(net_[1]))[eps]
+        x = x.to(device)
+        y = y.to(device)
+        fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[1], mask[1], fast_weights,
+                                                    bn_vars)
+        if net_[2] is not None:
+            id, (x, y) = list(enumerate(net_[2]))[eps]
+            x = x.to(device)
+            y = y.to(device)
+            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
+                                                        bn_vars)
+        id, (x, y) = list(enumerate(target_loader))[eps]
+        pred_source = net.functional_forward(x, target_mask.bool(), fast_weights, bn_vars, bn_training=True)
+        if len(pred_source.shape) == 4:  # STResNet
+            loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
+                          target_mask.view(-1).bool()]
+            loss_source = loss_source.mean(0).sum()
+        elif len(pred_source.shape) == 3:  # STNet
+            y = y.view(args.batch_size, 1, -1)[:, :, target_mask.view(-1).bool()]
+            loss_source = (((pred_source - y) ** 2) * weights.view(1, 1, -1))
+            loss_source = loss_source.mean(0).sum()
+        fast_loss = loss_source
+
+        optimizer_.zero_grad()
+        fast_loss.backward()
+        torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+        optimizer_.step()
+        epoch_loss.append(fast_loss.item())
     return epoch_loss
 
 
@@ -695,33 +672,27 @@ for ep in range(num_epochs):
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
     if args.need_third == 1:
         source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
-    if ep > int(num_epochs / 2):
-        source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
-                                  num_iters=args.pretrain_iter)
-        source_loss2 = train_epoch(net, source_loader2, pred_optimizer, weights=source_weights_ma2,
-                                   mask=th_mask_source2,
-                                   num_iters=args.pretrain_iter)
-        if args.need_third == 1:
-            source_loss3 = train_epoch(net, source_loader3, pred_optimizer, weights=source_weights_ma3,
-                                       mask=th_mask_source3,
-                                       num_iters=args.pretrain_iter, train=args.train_number)
-    else:
-        source_loss = meta_train(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
-                                 num_iters=args.pretrain_iter, train=args.train_number)
-        source_loss2 = meta_train(net, source_loader2, pred_optimizer, weights=source_weights_ma2, mask=th_mask_source2,
-                                  num_iters=args.pretrain_iter, train=args.train_number)
-        if args.need_third == 1:
-            source_loss3 = meta_train(net, source_loader3, pred_optimizer, weights=source_weights_ma3,
-                                      mask=th_mask_source3,
-                                      num_iters=args.pretrain_iter, train=args.train_number)
-    avg_source_loss = np.mean(source_loss)
-    avg_source_loss2 = np.mean(source_loss2)
+
     if args.need_third == 1:
-        avg_source_loss3 = np.mean(source_loss3)
+        loaders = [source_loader, source_loader2]
+        weights = [source_weights_ma, source_weights_ma2]
+        masks = [th_mask_source, th_mask_source2]
+        source_loss = meta_train(net, loaders, pred_optimizer, weights=weights,
+                                 mask=masks,
+                                 num_iters=args.pretrain_iter, train=args.train_number, target_loader=target_train_loader,
+                                 target_mask=th_mask_target)
+    else:
+        loaders = [source_loader, source_loader2, source_loader3]
+        weights = [source_weights_ma, source_weights_ma2, source_weights_ma3]
+        masks = [th_mask_source, th_mask_source2, th_mask_source3]
+        source_loss = meta_train(net, loaders, pred_optimizer, weights=weights,
+                                 mask=masks,
+                                 num_iters=args.pretrain_iter, train=args.train_number, target_loader=target_train_loader,
+                                 target_mask=th_mask_target)
+
+    avg_source_loss = np.mean(source_loss)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
-    log("s1 {} ,s2 {}, s3{}, tar{}".format(str(avg_source_loss), str(avg_source_loss2),
-                                           str(avg_source_loss3) if args.need_third == 1 else str(0),
-                                           str(avg_target_loss)))
+    log("s1 {} ,tar{}".format(str(avg_source_loss), str(avg_target_loss)))
 
     net.eval()
     rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
