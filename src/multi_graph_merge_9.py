@@ -679,7 +679,7 @@ for ep in range(num_epochs):
         masks = [th_mask_source, th_mask_source2]
         source_loss = meta_train(net, loaders, pred_optimizer, weights=weights,
                                  mask=masks,
-                                 num_iters=args.pretrain_iter, train=args.train_number, target_loader=target_train_loader,
+                                 num_iters=args.pretrain_iter, target_loader=target_train_loader,
                                  target_mask=th_mask_target)
     else:
         loaders = [source_loader, source_loader2, source_loader3]
@@ -687,7 +687,7 @@ for ep in range(num_epochs):
         masks = [th_mask_source, th_mask_source2, th_mask_source3]
         source_loss = meta_train(net, loaders, pred_optimizer, weights=weights,
                                  mask=masks,
-                                 num_iters=args.pretrain_iter, train=args.train_number, target_loader=target_train_loader,
+                                 num_iters=args.pretrain_iter, target_loader=target_train_loader,
                                  target_mask=th_mask_target)
 
     avg_source_loss = np.mean(source_loss)
