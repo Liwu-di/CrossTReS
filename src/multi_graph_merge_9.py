@@ -673,7 +673,7 @@ for ep in range(num_epochs):
     if args.need_third == 1:
         source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
 
-    if args.need_third == 1:
+    if args.need_third == 0:
         loaders = [source_loader, source_loader2]
         weights = [source_weights_ma, source_weights_ma2]
         masks = [th_mask_source, th_mask_source2]
