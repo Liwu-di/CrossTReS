@@ -496,7 +496,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
                           target_mask.view(-1).bool()]
             loss_source = loss_source.mean(0).sum()
         elif len(pred_source.shape) == 3:  # STNet
-            y = y.view(args.batch_size, 1, -1)[:, :, target_mask.view(-1).bool()]
+            y = y.view(y.shape[0], 1, -1)[:, :, target_mask.view(-1).bool()]
             loss_source = ((pred_source - y) ** 2)
             loss_source = loss_source.mean(0).sum()
         fast_loss = loss_source
