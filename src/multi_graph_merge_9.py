@@ -470,19 +470,19 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     epoch_loss = []
     length = len(list(enumerate(loader_[0])))
     for eps in range(length):
-        id, (x, y) = list(enumerate(net_[0]))[eps]
+        id, (x, y) = list(enumerate(loader_[0]))[eps]
         x = x.to(device)
         y = y.to(device)
         fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[0], mask[0], fast_weights,
                                                     bn_vars)
 
-        id, (x, y) = list(enumerate(net_[1]))[eps]
+        id, (x, y) = list(enumerate(loader_[1]))[eps]
         x = x.to(device)
         y = y.to(device)
         fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[1], mask[1], fast_weights,
                                                     bn_vars)
         if net_[2] is not None:
-            id, (x, y) = list(enumerate(net_[2]))[eps]
+            id, (x, y) = list(enumerate(loader_[2]))[eps]
             x = x.to(device)
             y = y.to(device)
             fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
