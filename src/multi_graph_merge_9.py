@@ -490,7 +490,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
         id, (x, y) = list(enumerate(target_loader))[eps]
         x = x.to(device)
         y = y.to(device)
-        pred_source = net.functional_forward(x, target_mask.bool(), fast_weights, bn_vars, bn_training=True)
+        pred_source = net.functional_forward(x, spatial_mask=target_mask.bool(), weights=fast_weights, bn_vars=bn_vars, bn_training=True)
         if len(pred_source.shape) == 4:  # STResNet
             loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
                           target_mask.view(-1).bool()]
