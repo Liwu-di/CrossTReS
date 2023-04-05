@@ -674,9 +674,9 @@ for ep in range(num_epochs):
         source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
 
     if args.need_third == 0:
-        loaders = [source_loader, source_loader2]
-        weights = [source_weights_ma, source_weights_ma2]
-        masks = [th_mask_source, th_mask_source2]
+        loaders = [source_loader, source_loader2, None]
+        weights = [source_weights_ma, source_weights_ma2, None]
+        masks = [th_mask_source, th_mask_source2, None]
         source_loss = meta_train(net, loaders, pred_optimizer, weights=weights,
                                  mask=masks,
                                  num_iters=args.pretrain_iter, target_loader=target_train_loader,
