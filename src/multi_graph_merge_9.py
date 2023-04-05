@@ -487,7 +487,8 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
             y = y.to(device)
             fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights[2], mask[2], fast_weights,
                                                         bn_vars)
-        id, (x, y) = list(enumerate(target_loader))[eps]
+        tar = list(enumerate(target_loader))[eps]
+        id, (x, y) = tar[eps % len(tar)]
         x = x.to(device)
         y = y.to(device)
         pred_source = net.functional_forward(x, spatial_mask=target_mask.bool(), weights=fast_weights, bn_vars=bn_vars, bn_training=True)
