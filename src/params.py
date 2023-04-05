@@ -157,6 +157,8 @@ def params():
     parser.add_argument("--need_road", type=bool, default=True)
     parser.add_argument("--v", type=bool, default=True)
     parser.add_argument("--normal", type=int, default=1)
+    parser.add_argument("--meta_ep", type=int, default=5)
+    parser.add_argument("--test_ep", type=int, default=50)
     args = parser.parse_args()
 
     if args.seed != -1:

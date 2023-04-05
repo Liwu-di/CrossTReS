@@ -532,7 +532,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     epoch_loss = []
     length = len(list(enumerate(loader_[0])))
     for eps in range(length):
-        if count < 5:
+        if count < args.meta_ep:
             count = count + 1
             id, (x, y) = list(enumerate(loader_[0]))[eps]
             x = x.to(device)
@@ -553,7 +553,7 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
                                                             bn_vars)
         else:
             count = count + 1
-            if count > 50:
+            if count > args.test_ep:
                 count = 0
             id, (x, y) = list(enumerate(loader_[0]))[eps]
             x = x.to(device)
