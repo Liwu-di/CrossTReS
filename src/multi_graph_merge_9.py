@@ -468,31 +468,63 @@ def meta_train(net_, loader_, optimizer_, weights=None, mask=None, num_iters=Non
     fast_weights, bn_vars = get_weights_bn_vars(net)
     net_.train()
     epoch_loss = []
+    num_batch = int(len(enumerate(loader_)) / 2)
+
     for i, (x, y) in enumerate(loader_):
         x = x.to(device)
         y = y.to(device)
-        if count % train == 0 and count != 0:
-            count = 0
-            pred_source = net.functional_forward(x, mask.bool(), fast_weights, bn_vars, bn_training=True)
-            if len(pred_source.shape) == 4:  # STResNet
-                loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
-                              mask.view(-1).bool()]
-                loss_source = (loss_source * weights).mean(0).sum()
-            elif len(pred_source.shape) == 3:  # STNet
-                y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-                loss_source = (((pred_source - y) ** 2) * weights.view(1, 1, -1))
-                loss_source = loss_source.mean(0).sum()
-            fast_loss = loss_source
-
+        if i < num_batch:
+            out = net_(x, spatial_mask=mask.bool())
+            if len(out.shape) == 4:  # STResNet
+                eff_batch_size = y.shape[0]
+                loss = ((out - y) ** 2).view(eff_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+                # log("loss", loss.shape)
+                if weights is not None:
+                    loss = (loss * weights)
+                    # log("weights", weights.shape)
+                    # log("loss * weights", loss.shape)
+                    loss = loss.mean(0).sum()
+                else:
+                    loss = loss.mean(0).sum()
+            elif len(out.shape) == 3:  # STNet
+                eff_batch_size = y.shape[0]
+                y = y.view(eff_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+                loss = ((out - y) ** 2)
+                if weights is not None:
+                    # log(loss.shape)
+                    # log(weights.shape)
+                    loss = (loss * weights.view(1, 1, -1)).mean(0).sum()
+                else:
+                    loss = loss.mean(0).sum()
             optimizer_.zero_grad()
-            fast_loss.backward()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
             optimizer_.step()
-            epoch_loss.append(fast_loss.item())
+            epoch_loss.append(loss.item())
         else:
-            fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights, mask, fast_weights,
-                                                       bn_vars)
-            fast_losses.append(fast_loss.item())
-            count = count + 1
+            if count % train == 0 and count != 0:
+                count = 0
+                pred_source = net.functional_forward(x, mask.bool(), fast_weights, bn_vars, bn_training=True)
+                if len(pred_source.shape) == 4:  # STResNet
+                    loss_source = ((pred_source - y) ** 2).view(args.batch_size, 1, -1)[:, :,
+                                  mask.view(-1).bool()]
+                    loss_source = (loss_source * weights).mean(0).sum()
+                elif len(pred_source.shape) == 3:  # STNet
+                    y = y.view(args.batch_size, 1, -1)[:, :, mask.view(-1).bool()]
+                    loss_source = (((pred_source - y) ** 2) * weights.view(1, 1, -1))
+                    loss_source = loss_source.mean(0).sum()
+                fast_loss = loss_source
+
+                optimizer_.zero_grad()
+                fast_loss.backward()
+                torch.nn.utils.clip_grad_norm_(net_.parameters(), max_norm=2)
+                optimizer_.step()
+                epoch_loss.append(fast_loss.item())
+            else:
+                fast_loss, fast_weights, bn_vars = net_fix2(x, y, weights, mask, fast_weights,
+                                                           bn_vars)
+                fast_losses.append(fast_loss.item())
+                count = count + 1
         if num_iters is not None and num_iters == i:
             break
     return epoch_loss
