@@ -695,7 +695,7 @@ for ep in range(num_epochs):
     source_weights_ma2 = ma_param * source_weights_ma2 + (1 - ma_param) * source_weights2
     if args.need_third == 1:
         source_weights_ma3 = ma_param * source_weights_ma3 + (1 - ma_param) * source_weights3
-    if ep < int(num_epochs / 2):
+    if ep > int(num_epochs / 2):
         source_loss = train_epoch(net, source_loader, pred_optimizer, weights=source_weights_ma, mask=th_mask_source,
                                   num_iters=args.pretrain_iter)
         source_loss2 = train_epoch(net, source_loader2, pred_optimizer, weights=source_weights_ma2,
