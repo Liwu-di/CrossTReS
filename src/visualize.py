@@ -48,11 +48,11 @@ def visualize(width, height, rectangles):
                 color=(random(), random(), random()),
             )
         )
-        axes.text(r.x + 0.5 * r.w, r.y + 0.5 * r.h, str(idx))
+        axes.text(r.x + 0.25 * r.w, r.y + 0.25 * r.h, str(idx))
     axes.set_xlim(0, width)
     axes.set_ylim(0, height)
     plt.gca().set_aspect('equal', adjustable='box')
-    plt.savefig(local_path_generate(suffix=".png"), dpi=600)
+    plt.savefig(local_path_generate(suffix=".pdf"), dpi=600)
     plt.show()
 
 
