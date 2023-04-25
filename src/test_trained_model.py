@@ -115,6 +115,7 @@ def evaluate(net_, loader, spatial_mask):
             elif len(out.shape) == 3:  # STNet
                 batch_size = y.shape[0]
                 lag = y.shape[1]
+                y = torch.where(y.abs() < 1e-6, 0, y)
                 y = y.view(batch_size, lag, -1)[:, :, spatial_mask.view(-1).bool()]
                 # log("out", out.shape)
                 # log("y", y.shape)
