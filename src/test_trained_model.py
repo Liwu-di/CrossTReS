@@ -89,6 +89,7 @@ def evaluate(net_, loader, spatial_mask):
         ae = 0
         mape = 0
         valid_points = 0
+        apes = 0
         losses = []
         for it_ in loader:
             if len(it_) == 2:
@@ -101,6 +102,7 @@ def evaluate(net_, loader, spatial_mask):
             lat = x.shape[3]
             out = net_(x, spatial_mask=spatial_mask.bool())
             valid_points += x.shape[0] * spatial_mask.sum().item()
+            apes += (y > 1e-6).sum().item()
             if len(out.shape) == 4:  # STResNet
                 se += (((out - y) ** 2) * (spatial_mask.view(1, 1, lng, lat))).sum().item()
                 ae += ((out - y).abs() * (spatial_mask.view(1, 1, lng, lat))).sum().item()
@@ -128,7 +130,7 @@ def evaluate(net_, loader, spatial_mask):
                     ape = ape.cpu().numpy().flatten()
                     ape[~ np.isfinite(ape)] = 0  # 对 -inf, inf, NaN进行修正，置为0
                     mape += ape.sum().item()
-    return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
+    return np.sqrt(se / valid_points), ae / valid_points, losses, mape / apes
 
 
 p_bar = process_bar(final_prompt="测试完成", unit="epoch")
