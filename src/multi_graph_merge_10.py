@@ -1663,6 +1663,7 @@ for i in getAllFiles(root_dir_pre):
     best_test_rmse = 999
     best_test_mae = 999
     best_test_mape = 999
+    pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
     for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         # fine-tuning
         net.train()
