@@ -1549,6 +1549,15 @@ if args.is_st_weight_static == 1:
 
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+
+root_dir = local_path_generate(
+    "./model/pre/{}".format(
+        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+            "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
+            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+            args.topk, get_timestamp(split="-")
+        )
+    ), create_folder_only=True)
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -1626,6 +1635,8 @@ for ep in range(num_epochs):
     train_target_val_loss.append(sums)
     sums = 0
     train_source_val_loss.append(sums)
+    if (ep % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
+        torch.save(net, root_dir + "/ep{}".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
