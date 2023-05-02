@@ -1635,8 +1635,8 @@ for ep in range(num_epochs):
     train_target_val_loss.append(sums)
     sums = 0
     train_source_val_loss.append(sums)
-    if (ep % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
-        torch.save(net, root_dir_pre + "/ep{}".format(str(ep + 1)))
+    if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
+        torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
@@ -1658,7 +1658,7 @@ for i in getAllFiles(root_dir_pre):
         net = STNet_nobn(1, 3, th_mask_target, sigmoid_out=True).to(device)
     elif args.model == 'STNet':
         net = STNet(1, 3, th_mask_target).to(device)
-    net = torch.load(args.test_mode_path)
+    net = torch.load(i)
     best_val_rmse = 999
     best_test_rmse = 999
     best_test_mae = 999
