@@ -1731,7 +1731,7 @@ long_term_save["validation_mae"] = validation_mae
 long_term_save["test_rmse"] = test_rmse
 long_term_save["test_mae"] = test_mae
 
-log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_final_rmse * (max_val - min_val), best_final_mae * (max_val - min_val), best_test_mape * 100))
 
 save_obj(long_term_save,
          local_path_generate("experiment_data",
@@ -1748,7 +1748,7 @@ if args.c != "default":
     if args.need_remark == 1:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f,%.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
+                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * 100),
                       remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
                                                                args.scity2,
                                                                args.scity3 if args.need_third == 1 else "", args.tcity,
@@ -1756,6 +1756,6 @@ if args.c != "default":
     else:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f, %.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
+                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * 100),
                       remark="{}".format(args.machine_code))
 

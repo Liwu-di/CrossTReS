@@ -155,14 +155,18 @@ for ep in range(1):
         best_test_mae = mae_test
         best_teat_mape = mape_test
         log("Update best test...")
-    log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), mae_test * (max_val - min_val)))
+    log("validation rmse %.4f, mae %.4f, mape %.4f" % (
+    rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f, mape %.4f" % (
+    rmse_test * (max_val - min_val), mae_test * (max_val - min_val), mae_test * (max_val - min_val)))
 
     log()
     p_bar.process(0, 1, 1)
 
-log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_teat_mape * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (
+best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_teat_mape * 100))
 write_file("./test_result.res", mode="a+", string="{} {} {}: ".
-           format(dataname, datatype, str(args.data_amount)) + "%.4f, %.4f, %.4f \n" % (best_test_rmse * (max_val - min_val),
-                                                                                  best_test_mae * (max_val - min_val),
-                                                                                        best_teat_mape * (max_val - min_val)))
+           format(dataname, datatype, str(args.data_amount)) + "%.4f, %.4f, %.4f \n" % (
+                                                  best_test_rmse * (max_val - min_val),
+                                                  best_test_mae * (max_val - min_val),
+                                                  best_teat_mape * 100))
