@@ -53,7 +53,6 @@ source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_da
 # %%
 this_use_data = target_data[-((args.data_amount + 60) * 24):, :, :]
 this_use_data, maxs, mins = min_max_normalize(this_use_data)
-log(maxs, mins)
 this_use_data2 = this_use_data[0: args.data_amount * 24]
 # %%
 mae = []
@@ -100,8 +99,8 @@ for i in mape:
     if math.isnan(i):
         continue
     mapes = mapes + i
-r = np.sqrt(rmses / (xtest.shape[0] * mask_target.sum())) * (maxs - mins)
-m = (maes / (xtest.shape[0] * mask_target.sum())) * (maxs - mins)
+r = np.sqrt(rmses / (xtest.shape[0] * mask_target.sum())) * (max_val - min_val)
+m = (maes / (xtest.shape[0] * mask_target.sum())) * (max_val - min_val)
 p = (mapes / apes) * 100
 log(r, m, p)
 
