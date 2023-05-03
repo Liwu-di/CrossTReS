@@ -1696,7 +1696,7 @@ for i in getAllFiles(root_dir_pre):
             if best_test_rmse + ratio * best_test_mae < min_best:
                 best_final_rmse = best_test_rmse
                 best_final_mae = best_test_mae
-                best_test_mape = best_test_mape
+                best_final_mape = best_test_mape
                 save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
                 log("Update best test...")
         log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
