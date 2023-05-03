@@ -52,7 +52,6 @@ source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_da
     args, p_bar)
 # %%
 this_use_data = target_data[-((args.data_amount + 60) * 24):, :, :]
-this_use_data, maxs, mins = min_max_normalize(this_use_data)
 this_use_data2 = this_use_data[0: args.data_amount * 24]
 # %%
 mae = []
