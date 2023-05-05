@@ -1648,8 +1648,8 @@ for ep in range(num_epochs):
         best = rmse_s_val
         log("update")
         torch.save(net, root_dir_pre + "/best.pth")
-    # if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
-    #     torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
+    if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
+        torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
