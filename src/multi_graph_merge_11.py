@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # @Time    : 2023/1/12 9:39
 # @Author  : 银尘
-# @FileName: multi_graph_merge_7.py
+# @FileName: multi_graph_merge_11.py
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
-# @Info    : 3城市生成虚拟城市
+# @Info    :
 
 
 import argparse
@@ -1635,6 +1635,14 @@ for ep in range(num_epochs):
     train_target_val_loss.append(sums)
     sums = 0
     train_source_val_loss.append(sums)
+    rmse_s_val, mae_s_val = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
+    rmse_s_vals = rmse_s_val * (virtual_max - virtual_min)
+    mae_s_vals = mae_s_val * (virtual_max - virtual_min)
+    if args.datatype == "Taxi":
+        ratio = 3
+    else:
+        ratio = 2
+    log(rmse_s_vals, mae_s_vals, rmse_s_vals + ratio * mae_s_val)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
