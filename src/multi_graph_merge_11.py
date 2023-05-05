@@ -1647,6 +1647,7 @@ for ep in range(num_epochs):
                                            rmse_s_val + ratio * mae_s_val))
     if rmse_s_val + ratio * mae_s_val < best:
         best = rmse_s_val + ratio * mae_s_val
+        log("update")
         torch.save(net, root_dir_pre + "/best.pth")
     # if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
     #     torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
