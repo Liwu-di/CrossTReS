@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2023/1/12 9:39
+# @Time    : 2023/5/2 18:20
 # @Author  : 银尘
-# @FileName: multi_graph_merge_11.py
+# @FileName: multi_graph_merge_10.py
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
-# @Info    :
+# @Info    : auto best
 
 
 import argparse
@@ -1550,7 +1550,7 @@ if args.is_st_weight_static == 1:
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
-root_dir = local_path_generate(
+root_dir_pre = local_path_generate(
     "./model/pre/{}".format(
         "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
             "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
@@ -1635,14 +1635,16 @@ for ep in range(num_epochs):
     train_target_val_loss.append(sums)
     sums = 0
     train_source_val_loss.append(sums)
-    rmse_s_val, mae_s_val = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
-    rmse_s_vals = rmse_s_val * (virtual_max - virtual_min)
-    mae_s_vals = mae_s_val * (virtual_max - virtual_min)
     if args.datatype == "Taxi":
         ratio = 3
     else:
         ratio = 2
-    log(rmse_s_vals, mae_s_vals, rmse_s_vals + ratio * mae_s_val)
+    rmse_s_val, mae_s_val = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
+    log("rmses %.4f maes %.4f sum %.4f" % (rmse_s_val * (virtual_max - virtual_min),
+                                           mae_s_val * (virtual_max - virtual_min),
+                                           rmse_s_val + ratio * mae_s_val))
+    if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
+        torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
@@ -1653,45 +1655,71 @@ root_dir = local_path_generate(
             args.topk, get_timestamp(split="-")
         )
     ), create_folder_only=True)
-for ep in range(num_epochs, num_tuine_epochs + num_epochs):
-    # fine-tuning
-    net.train()
-    avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
-    log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
-    writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
-    target_pred_loss.append(np.mean(avg_loss))
-    net.eval()
-    rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    rmse_test, mae_test, test_losses, test_mape = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
-    sums = 0
-    for i in range(len(val_losses)):
-        sums = sums + val_losses[i].mean(0).sum().item()
-    writer.add_scalar("target train val loss", sums, ep)
-    target_train_val_loss.append(sums)
-    sums = 0
-    for i in range(len(test_losses)):
-        sums = sums + test_losses[i].mean(0).sum().item()
-    target_train_test_loss.append(sums)
-    writer.add_scalar("target train test loss", sums, ep)
-    if rmse_val < best_val_rmse:
-        best_val_rmse = rmse_val
-        best_test_rmse = rmse_test
-        best_test_mae = mae_test
-        best_test_mape = test_mape
-        save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
-        log("Update best test...")
-    log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
-    writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
-    writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
-    writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
-    writer.add_scalar("test mae", mae_test * (max_val - min_val), ep - num_epochs)
-    validation_rmse.append(rmse_val * (max_val - min_val))
-    validation_mae.append(mae_val * (max_val - min_val))
-    test_rmse.append(rmse_test * (max_val - min_val))
-    test_mae.append(mae_test * (max_val - min_val))
-    log()
-    p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+min_best = 999
+best_final_rmse = 999
+best_final_mae = 999
+best_final_mape = 999
+for i in getAllFiles(root_dir_pre):
+    if args.model == 'STResNet':
+        net = STResNet(len(lag), 1, 3).to(device)
+    elif args.model == 'STNet_nobn':
+        net = STNet_nobn(1, 3, th_mask_target, sigmoid_out=True).to(device)
+    elif args.model == 'STNet':
+        net = STNet(1, 3, th_mask_target).to(device)
+    net = torch.load(i)
+    best_val_rmse = 999
+    best_test_rmse = 999
+    best_test_mae = 999
+    best_test_mape = 999
+    pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
+    for ep in range(num_epochs, num_tuine_epochs + num_epochs):
+        # fine-tuning
+        net.train()
+        avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
+        log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
+        writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
+        target_pred_loss.append(np.mean(avg_loss))
+        net.eval()
+        rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+        rmse_test, mae_test, test_losses, test_mape = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
+        sums = 0
+        for i in range(len(val_losses)):
+            sums = sums + val_losses[i].mean(0).sum().item()
+        writer.add_scalar("target train val loss", sums, ep)
+        target_train_val_loss.append(sums)
+        sums = 0
+        for i in range(len(test_losses)):
+            sums = sums + test_losses[i].mean(0).sum().item()
+        target_train_test_loss.append(sums)
+        writer.add_scalar("target train test loss", sums, ep)
+        if rmse_val < best_val_rmse:
+            best_val_rmse = rmse_val
+            best_test_rmse = rmse_test
+            best_test_mae = mae_test
+            best_test_mape = test_mape
+            if args.datatype == "Taxi":
+                ratio = 3
+            else:
+                ratio = 2
+            if best_test_rmse + ratio * best_test_mae < min_best:
+                best_final_rmse = best_test_rmse
+                best_final_mae = best_test_mae
+                best_final_mape = best_test_mape
+                save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
+                log("Update best test...")
+        log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
+        log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
+        writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
+        writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
+        writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
+        writer.add_scalar("test mae", mae_test * (max_val - min_val), ep - num_epochs)
+        validation_rmse.append(rmse_val * (max_val - min_val))
+        validation_mae.append(mae_val * (max_val - min_val))
+        test_rmse.append(rmse_test * (max_val - min_val))
+        test_mae.append(mae_test * (max_val - min_val))
+        log()
+        p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+    ratio = 0
 
 long_term_save["source_weights_ma_list"] = source_weights_ma_list
 long_term_save["source_weight_list"] = source_weight_list
@@ -1711,7 +1739,7 @@ long_term_save["validation_mae"] = validation_mae
 long_term_save["test_rmse"] = test_rmse
 long_term_save["test_mae"] = test_mae
 
-log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_final_rmse * (max_val - min_val), best_final_mae * (max_val - min_val), best_test_mape * 100))
 
 save_obj(long_term_save,
          local_path_generate("experiment_data",
@@ -1728,7 +1756,7 @@ if args.c != "default":
     if args.need_remark == 1:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f,%.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
+                      (best_final_rmse * (max_val - min_val), best_final_mae * (max_val - min_val), best_final_mape * 100),
                       remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
                                                                args.scity2,
                                                                args.scity3 if args.need_third == 1 else "", args.tcity,
@@ -1736,5 +1764,6 @@ if args.c != "default":
     else:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f, %.4f" %
-                      (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)),
+                      (best_final_rmse * (max_val - min_val), best_final_mae * (max_val - min_val), best_final_mape * 100),
                       remark="{}".format(args.machine_code))
+
