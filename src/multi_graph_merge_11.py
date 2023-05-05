@@ -1558,6 +1558,8 @@ root_dir_pre = local_path_generate(
             args.topk, get_timestamp(split="-")
         )
     ), create_folder_only=True)
+
+best = 999999
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -1643,8 +1645,10 @@ for ep in range(num_epochs):
     log("rmses %.4f maes %.4f sum %.4f" % (rmse_s_val * (virtual_max - virtual_min),
                                            mae_s_val * (virtual_max - virtual_min),
                                            rmse_s_val + ratio * mae_s_val))
-    if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
-        torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
+    if rmse_s_val + ratio * mae_s_val < best:
+        torch.save(net, root_dir_pre + "/best.pth")
+    # if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
+    #     torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
