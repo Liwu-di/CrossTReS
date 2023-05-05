@@ -1644,7 +1644,7 @@ for ep in range(num_epochs):
     rmse_s_val, mae_s_val, _ ,__ = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
     log("rmses %.4f maes %.4f " % (rmse_s_val * (virtual_max - virtual_min),
                                 mae_s_val * (virtual_max - virtual_min)))
-    if rmse_s_val < best:
+    if rmse_s_val < best and (ep % 10 == 0 or ep == (num_epochs - 1)):
         best = rmse_s_val
         log("update")
         torch.save(net, root_dir_pre + "/best.pth")
