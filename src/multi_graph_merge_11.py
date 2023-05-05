@@ -1641,7 +1641,7 @@ for ep in range(num_epochs):
         ratio = 3
     else:
         ratio = 2
-    rmse_s_val, mae_s_val = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
+    rmse_s_val, mae_s_val, _ ,__ = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
     log("rmses %.4f maes %.4f sum %.4f" % (rmse_s_val * (virtual_max - virtual_min),
                                            mae_s_val * (virtual_max - virtual_min),
                                            rmse_s_val + ratio * mae_s_val))
