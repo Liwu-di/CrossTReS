@@ -1627,7 +1627,6 @@ for ep in range(num_epochs):
     rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     log("Epoch %d, target validation rmse %.4f, mae %.4f" % (
         ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log()
     target_validation_mae.append(mae_val * (max_val - min_val))
     target_validation_rmse.append(rmse_val * (max_val - min_val))
     sums = 0
@@ -1644,12 +1643,11 @@ for ep in range(num_epochs):
     rmse_s_val, mae_s_val, _ ,__ = evaluate(net, virtual_loader, spatial_mask=th_mask_virtual)
     log("rmses %.4f maes %.4f " % (rmse_s_val * (virtual_max - virtual_min),
                                 mae_s_val * (virtual_max - virtual_min)))
-    if rmse_s_val < best and ((ep + 1) % 10 == 0):
-        best = rmse_s_val
+    log()
+    if rmse_val < best and ((ep + 1) % 10 == 0):
+        best = rmse_val
         log("update")
         torch.save(net, root_dir_pre + "/best.pth")
-    # if ((ep + 1) % 10 == 0 and ep != 0) or (ep == (num_epochs - 1)):
-    #     torch.save(net, root_dir_pre + "/ep{}.pth".format(str(ep + 1)))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
