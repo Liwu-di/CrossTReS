@@ -1644,6 +1644,7 @@ for ep in range(num_epochs):
         net = torch.load(root_dir_pre + "/temp.pth")
         pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
         os.remove(root_dir_pre + "/temp.pth")
+    p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
     "./model/{}".format(
