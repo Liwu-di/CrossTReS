@@ -1583,22 +1583,6 @@ for ep in range(num_epochs):
         fused_emb_s, _ = fusion(views)
         views = mvgat(target_graphs, torch.Tensor(target_norm_poi).to(device))
         fused_emb_t, _ = fusion(views)
-    if ep % 2 == 0:
-        """
-        每两个epoch显示一些数据
-        """
-        emb_s = fused_emb_s.cpu().numpy()[mask_virtual.reshape(-1)]
-        emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
-        mix_embs = np.concatenate([emb_s, emb_t], axis=0)
-        mix_labels = np.concatenate([virtual_emb_label, target_emb_label])
-        logreg = LogisticRegression(max_iter=500)
-        cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
-        cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
-        cvscore_mix = cross_validate(logreg, mix_embs, mix_labels)['test_score'].mean()
-        log(
-            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
-            (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
-             cvscore_t, cvscore_mix))
 
     avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
     with torch.no_grad():
@@ -1644,7 +1628,7 @@ for ep in range(num_epochs):
     log("rmses %.4f maes %.4f " % (rmse_s_val * (virtual_max - virtual_min),
                                 mae_s_val * (virtual_max - virtual_min)))
     log()
-    if rmse_val < best and ((ep + 1) % 10 == 0):
+    if rmse_val < best: #and ((ep + 1) % 10 == 0):
         best = rmse_val
         log("update")
         torch.save(net, root_dir_pre + "/best.pth")
