@@ -1604,6 +1604,7 @@ for ep in range(num_epochs):
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     log("[%.2fs]Epoch %d, virtual_source_loss %.4f" % (time.time() - start_time, ep, np.mean(virtual_source_loss)))
     log("[%.2fs]Epoch %d, target_loss %.4f" % (time.time() - start_time, ep, avg_target_loss))
+    log(source_weights_ma.mean())
     if source_weights_ma.mean() < 0.005:
         # stop pre-training
         break
