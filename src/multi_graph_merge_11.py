@@ -1638,7 +1638,7 @@ for ep in range(num_epochs):
             net.eval()
             rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
             if rmse_val < best:
-                best_val_rmse = rmse_val
+                best = rmse_val
                 log("Update")
                 torch.save(net, root_dir_pre + "/best.pth")
         net = torch.load(root_dir_pre + "/temp.pth")
