@@ -9,6 +9,7 @@
 
 import argparse
 import ast
+import os
 from collections import OrderedDict
 import numpy as np
 import torch
@@ -1631,6 +1632,7 @@ for ep in range(num_epochs):
     log()
     if (ep + 1) % 10 == 0:
         torch.save(net, root_dir_pre + "/temp.pth")
+        flag = False
         pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
         for epep in range(40):
             net.train()
@@ -1639,11 +1641,14 @@ for ep in range(num_epochs):
             rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
             if rmse_val < best:
                 best = rmse_val
+                flag = True
                 log("Update")
-                torch.save(net, root_dir_pre + "/best.pth")
         net = torch.load(root_dir_pre + "/temp.pth")
         pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
-        os.remove(root_dir_pre + "/temp.pth")
+        if flag:
+            os.rename(root_dir_pre + "/temp.pth", root_dir_pre + "/best.pth")
+        else:
+            os.remove(root_dir_pre + "/temp.pth")
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 root_dir = local_path_generate(
