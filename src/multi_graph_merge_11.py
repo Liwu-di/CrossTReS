@@ -1629,11 +1629,21 @@ for ep in range(num_epochs):
     log("rmses %.4f maes %.4f " % (rmse_s_val * (virtual_max - virtual_min),
                                 mae_s_val * (virtual_max - virtual_min)))
     log()
-    if np.mean(virtual_source_loss).item() < best: #and ((ep + 1) % 10 == 0):
-        best = np.mean(virtual_source_loss).item()
-        log("update")
-        torch.save(net, root_dir_pre + "/best.pth")
-    p_bar.process(0, 1, num_epochs + num_tuine_epochs)
+    if (ep + 1) % 10 == 0:
+        torch.save(net, root_dir_pre + "/temp.pth")
+        pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
+        for epep in range(40):
+            net.train()
+            train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
+            net.eval()
+            rmse_val, mae_val, val_losses, val_mape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
+            if rmse_val < best:
+                best_val_rmse = rmse_val
+                log("Update")
+                torch.save(net, root_dir_pre + "/best.pth")
+        net = torch.load(root_dir_pre + "/temp.pth")
+        pred_optimizer = optim.Adam(net.parameters(), lr=args.pred_lr, weight_decay=args.weight_decay)
+        os.remove(root_dir_pre + "/temp.pth")
 
 root_dir = local_path_generate(
     "./model/{}".format(
