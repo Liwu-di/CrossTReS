@@ -1628,8 +1628,8 @@ for ep in range(num_epochs):
     log("rmses %.4f maes %.4f " % (rmse_s_val * (virtual_max - virtual_min),
                                 mae_s_val * (virtual_max - virtual_min)))
     log()
-    if rmse_val < best: #and ((ep + 1) % 10 == 0):
-        best = rmse_val
+    if rmse_s_val < best: #and ((ep + 1) % 10 == 0):
+        best = rmse_s_val
         log("update")
         torch.save(net, root_dir_pre + "/best.pth")
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
