@@ -156,7 +156,7 @@ for ep in range(1):
         best_teat_mape = mape_test
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f, mape %.4f" % (
-    rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * (max_val - min_val)))
+    rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * 100))
     log("test rmse %.4f, mae %.4f, mape %.4f" % (
     rmse_test * (max_val - min_val), mae_test * (max_val - min_val), mae_test * (max_val - min_val)))
 
