@@ -155,10 +155,6 @@ for ep in range(1):
         best_test_mae = mae_test
         best_teat_mape = mape_test
         log("Update best test...")
-    log("validation rmse %.4f, mae %.4f, mape %.4f" % (
-    rmse_val * (max_val - min_val), mae_val * (max_val - min_val), mape_val * 100))
-    log("test rmse %.4f, mae %.4f, mape %.4f" % (
-    rmse_test * (max_val - min_val), mae_test * (max_val - min_val), mae_test * (max_val - min_val)))
 
     log()
     p_bar.process(0, 1, 1)
