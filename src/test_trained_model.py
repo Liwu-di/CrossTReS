@@ -141,14 +141,6 @@ for ep in range(1):
     net.eval()
     rmse_val, mae_val, val_losses, mape_val = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_test, mae_test, test_losses, mape_test = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
-    sums = 0
-    for i in range(len(val_losses)):
-        sums = sums + val_losses[i].mean(0).sum().item()
-
-    sums = 0
-    for i in range(len(test_losses)):
-        sums = sums + test_losses[i].mean(0).sum().item()
-
     if rmse_val < best_val_rmse:
         best_val_rmse = rmse_val
         best_test_rmse = rmse_test
