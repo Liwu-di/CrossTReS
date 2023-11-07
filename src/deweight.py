@@ -823,7 +823,7 @@ validation_rmse = []
 validation_mae = []
 test_rmse = []
 test_mae = []
-num_tuine_epochs = 3
+
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
