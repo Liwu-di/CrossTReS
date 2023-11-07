@@ -828,6 +828,7 @@ p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
                        format("单城市{}-{}".format(args.scity, args.tcity), args.batch_size, args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
+num_tuine_epochs = 5
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
@@ -848,7 +849,7 @@ for ep in range(num_epochs):
     log(rmse_s_val, mae_s_val)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
-for ep in range(num_epochs, 10 + num_epochs):
+for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     net.train()
     avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
     log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
