@@ -823,12 +823,13 @@ validation_rmse = []
 validation_mae = []
 test_rmse = []
 test_mae = []
+num_tuine_epochs = 3
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-{}-time-{}".
                        format("单城市{}-{}".format(args.scity, args.tcity), args.batch_size, args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
-num_tuine_epochs = 5
+
 for ep in range(num_epochs):
     net.train()
     mvgat.train()
