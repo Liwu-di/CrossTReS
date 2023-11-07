@@ -28,6 +28,8 @@ from torch.utils.tensorboard import SummaryWriter
 from params import *
 from model import *
 from utils import *
+from funcs import *
+
 
 basic_config(logs_style=LOG_STYLE_PRINT)
 p_bar = process_bar(final_prompt="初始化准备完成", unit="part")
@@ -849,7 +851,14 @@ for ep in range(num_epochs):
     rmse_s_val, mae_s_val, test_losses, _ = evaluate(net, source_loader, spatial_mask=th_mask_source)
     log(rmse_s_val, mae_s_val)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
-
+root_dir = local_path_generate(
+    "./model/{}".format(
+        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
+            "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
+            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
+            args.topk, get_timestamp(split="-")
+        )
+    ), create_folder_only=True)
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     net.train()
     avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
@@ -872,25 +881,13 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_test_rmse = rmse_test
         best_test_mae = mae_test
         best_test_mape = target_test_ape
+        save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), target_val_ape * 100))
     log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), target_test_ape * 100))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * 100))
-root_dir = local_path_generate(
-    "./model/{}".format(
-        "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
-            "单城市{}-{}".format(args.scity, args.tcity),
-            args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-            args.topk, get_timestamp(split="-")
-        )
-    ), create_folder_only=True)
-torch.save(net, root_dir + "/net.pth")
-torch.save(mvgat, root_dir + "/mvgat.pth")
-torch.save(fusion, root_dir + "/fusion.pth")
-torch.save(scoring, root_dir + "/scoring.pth")
-torch.save(edge_disc, root_dir + "/edge_disc.pth")
 if args.c != "default":
     record.update(record_id, get_timestamp(),
                   "Best test rmse %.4f, mae %.4f" %
