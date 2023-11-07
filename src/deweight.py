@@ -840,16 +840,18 @@ for ep in range(num_epochs):
     edge_losses = []
     source_loss = train_epoch(net, source_loader, pred_optimizer, weights=None, mask=th_mask_source,
                               num_iters=args.pretrain_iter)
-    log("no weight")
     avg_source_loss = np.mean(source_loss)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
     net.eval()
     rmse_val, mae_val, val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_s_val, mae_s_val, test_losses, _ = evaluate(net, source_loader, spatial_mask=th_mask_source)
+    log(rmse_s_val, mae_s_val)
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     net.train()
+    avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
+    log('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
     net.eval()
     rmse_val, mae_val, val_losses, target_val_ape = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
     rmse_test, mae_test, test_losses, target_test_ape = evaluate(net, target_test_loader, spatial_mask=th_mask_target)
@@ -869,8 +871,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_test_mae = mae_test
         best_test_mape = target_test_ape
         log("Update best test...")
-    log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), target_val_ape * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), target_test_ape * (max_val - min_val)))
+    log("validation rmse %.4f, mae %.4f, mape %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val), target_val_ape * 100))
+    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), target_test_ape * 100))
     p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
 log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * 100))
