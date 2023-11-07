@@ -1085,6 +1085,7 @@ def evaluate(net_, loader, spatial_mask):
                     mape += ape.sum().item()
     return np.sqrt(se / valid_points), ae / valid_points, losses, mape / valid_points
 
+
 def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=None):
     """
     训练预测网络pred net网络，依据权重weights 修改loss，如
@@ -1434,24 +1435,26 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                               args.dataname,
                               args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
 
-
-time_weight = np.zeros((virtual_city.shape[1], virtual_city.shape[2], target_data.shape[1] * target_data.shape[2]))
-sum = virtual_city.shape[1] * virtual_city.shape[2]
-
-p_bar = process_bar(final_prompt="时间权重生成完成", unit="part")
-for i in range(virtual_city.shape[1]):
-    for j in range(virtual_city.shape[2]):
-        if mask_virtual[i][j]:
-            for p in range(target_data.shape[1]):
-                for q in range(target_data.shape[2]):
-                    time_weight[i][j][
-                        idx_2d_2_1d((p, q), (target_data.shape[1], target_data.shape[2]))] = dtw.distance_fast(
-                        virtual_city[:, i, j], target_data[(8 * 30 - args.data_amount) * 24: 8 * 30 * 24, p, q])
-        p_bar.process(0, 1, sum)
-
-time_weight, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight)
-time_weight, _, _ = min_max_normalize(time_weight.sum(axis=2))
-
+# if args.is_st_weight_static == 1:
+#     time_weight = np.zeros((virtual_city.shape[1], virtual_city.shape[2], target_data.shape[1] * target_data.shape[2]))
+#     sum = virtual_city.shape[1] * virtual_city.shape[2]
+#
+#     p_bar = process_bar(final_prompt="时间权重生成完成", unit="part")
+#     for i in range(virtual_city.shape[1]):
+#         for j in range(virtual_city.shape[2]):
+#             if mask_virtual[i][j]:
+#                 for p in range(target_data.shape[1]):
+#                     for q in range(target_data.shape[2]):
+#                         time_weight[i][j][
+#                             idx_2d_2_1d((p, q), (target_data.shape[1], target_data.shape[2]))] = dtw.distance_fast(
+#                             virtual_city[:, i, j], target_data[(8 * 30 - args.data_amount) * 24: 8 * 30 * 24, p, q])
+#             p_bar.process(0, 1, sum)
+#
+#     time_weight, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight)
+#     time_weight, _, _ = min_max_normalize(time_weight.sum(axis=2))
+time_weight = calculateGeoSimilarity(spoi=virtual_poi, sroad=virtual_road_adj, s_s=virtual_s_adj, s_t=virtual_d_adj,
+                                     mask_s=mask_virtual, tpoi=target_poi, troad=target_road_adj, t_s=target_s_adj,
+                                     t_t=target_t_adj, mask_t=mask_target, dis_method="KL")
 p_bar = process_bar(final_prompt="训练完成", unit="epoch")
 p_bar.process(0, 1, num_epochs + num_tuine_epochs)
 
@@ -1568,7 +1571,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
         log("Update best test...")
     log("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    log("test rmse %.4f, mae %.4f, mape %.4f" % (rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
+    log("test rmse %.4f, mae %.4f, mape %.4f" % (
+    rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
     writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
@@ -1598,7 +1602,8 @@ long_term_save["validation_mae"] = validation_mae
 long_term_save["test_rmse"] = test_rmse
 long_term_save["test_mae"] = test_mae
 
-log("Best test rmse %.4f, mae %.4f, mape %.4f" % (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
+log("Best test rmse %.4f, mae %.4f, mape %.4f" % (
+best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
 
 save_obj(long_term_save,
          local_path_generate("experiment_data",
@@ -1616,10 +1621,13 @@ if args.c != "default":
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f,%.4f" %
                       (best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * 100),
-                      remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3", args.cut_data, args.scity,
-                                                               args.scity2,
-                                                               args.scity3 if args.need_third == 1 else "", args.tcity,
-                                                               str(args.data_amount), args.dataname, args.datatype, args.machine_code))
+                      remark="{}C {} {} {} {} {} {} {} {} {}".format("2" if args.need_third == 0 else "3",
+                                                                     args.cut_data, args.scity,
+                                                                     args.scity2,
+                                                                     args.scity3 if args.need_third == 1 else "",
+                                                                     args.tcity,
+                                                                     str(args.data_amount), args.dataname,
+                                                                     args.datatype, args.machine_code))
     else:
         record.update(record_id, get_timestamp(),
                       "%.4f,%.4f, %.4f" %
