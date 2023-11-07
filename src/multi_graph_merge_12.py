@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
-# @Time    : 2023/1/12 9:39
+# @Time    : 2023/11/7 9:15
 # @Author  : 银尘
-# @FileName: multi_graph_merge_7.py
+# @FileName: multi_graph_merge_12.py.py
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
-# @Info    : 3城市生成虚拟城市
-
-
+# @Info    : de-adapt-weight
 import argparse
 import ast
 from collections import OrderedDict
@@ -1412,99 +1410,6 @@ log("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
     (time.time() - start_time, cvscore_s, cvscore_t))
 log()
 
-
-def net_fix(source, y, weight, mask, fast_weights, bn_vars):
-    pred_source = net.functional_forward(source, mask.bool(), fast_weights, bn_vars, bn_training=True)
-    if len(pred_source.shape) == 4:  # STResNet
-        loss_source = ((pred_source - y) ** 2).view(args.meta_batch_size, 1, -1)[:, :,
-                      mask.view(-1).bool()]
-        loss_source = (loss_source * weight).mean(0).sum()
-    elif len(pred_source.shape) == 3:  # STNet
-        y = y.view(args.meta_batch_size, 1, -1)[:, :, mask.view(-1).bool()]
-        loss_source = (((pred_source - y) ** 2) * weight.view(1, 1, -1))
-        loss_source = loss_source.mean(0).sum()
-    fast_loss = loss_source
-    grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
-    for name, grad in zip(fast_weights.keys(), grads):
-        fast_weights[name] = fast_weights[name] - args.innerlr * grad
-    return fast_loss, fast_weights, bn_vars
-
-
-def meta_train_epoch(s_embs, t_embs):
-    meta_query_losses = []
-    for meta_ep in range(args.outeriter):
-        fast_losses = []
-        fast_weights, bn_vars = get_weights_bn_vars(net)
-        source_weights = scoring(s_embs, t_embs, th_mask_virtual, th_mask_target)
-        # inner loop on source, pre-train with weights
-        for meta_it in range(args.sinneriter):
-            s_x1, s_y1 = batch_sampler((torch.Tensor(virtual_train_x), torch.Tensor(virtual_train_y)),
-                                       args.meta_batch_size)
-            s_x1 = s_x1.to(device)
-            s_y1 = s_y1.to(device)
-            fast_loss, fast_weights, bn_vars = net_fix(s_x1, s_y1, source_weights, th_mask_virtual, fast_weights,
-                                                       bn_vars)
-            fast_losses.append(fast_loss.item())
-
-        # inner loop on target, simulate fine-tune
-        # 模拟微调和源训练都是在训练net预测网络，并没有提及权重和特征
-        for meta_it in range(args.tinneriter):
-            t_x, t_y = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
-            t_x = t_x.to(device)
-            t_y = t_y.to(device)
-            pred_t = net.functional_forward(t_x, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
-            if len(pred_t.shape) == 4:  # STResNet
-                loss_t = ((pred_t - t_y) ** 2).view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # log(loss_source.shape)
-                loss_t = loss_t.mean(0).sum()
-            elif len(pred_t.shape) == 3:  # STNet
-                t_y = t_y.view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # log(t_y.shape)
-                loss_t = ((pred_t - t_y) ** 2)  # .view(1, 1, -1))
-                # log(loss_t.shape)
-                # log(loss_source.shape)
-                # log(source_weights.shape)
-                loss_t = loss_t.mean(0).sum()
-            fast_loss = loss_t
-            fast_losses.append(fast_loss.item())  #
-            grads = torch.autograd.grad(fast_loss, fast_weights.values(), create_graph=True)
-            for name, grad in zip(fast_weights.keys(), grads):
-                fast_weights[name] = fast_weights[name] - args.innerlr * grad
-                # fast_weights[name].add_(grad, alpha = -args.innerlr)
-
-        q_losses = []
-        target_iter = max(args.sinneriter, args.tinneriter)
-        for k in range(3):
-            # query loss
-            x_q = None
-            y_q = None
-            temp_mask = None
-
-            x_q, y_q = batch_sampler((torch.Tensor(target_train_x), torch.Tensor(target_train_y)), args.batch_size)
-            temp_mask = th_mask_target
-            x_q = x_q.to(device)
-            y_q = y_q.to(device)
-            pred_q = net.functional_forward(x_q, temp_mask.bool(), fast_weights, bn_vars, bn_training=True)
-            if len(pred_q.shape) == 4:  # STResNet
-                loss = (((pred_q - y_q) ** 2) * (temp_mask.view(1, 1, lng_target, lat_target)))
-                loss = loss.mean(0).sum()
-            elif len(pred_q.shape) == 3:  # STNet
-                y_q = y_q.view(args.batch_size, 1, -1)[:, :, temp_mask.view(-1).bool()]
-                loss = ((pred_q - y_q) ** 2).mean(0).sum()
-            q_losses.append(loss)
-        q_loss = torch.stack(q_losses).mean()
-        weights_mean = (source_weights ** 2).mean()
-        meta_loss = q_loss + weights_mean * args.weight_reg
-        meta_optimizer.zero_grad()
-        meta_loss.backward(inputs=list(scoring.parameters()), retain_graph=True)
-        torch.nn.utils.clip_grad_norm_(scoring.parameters(), max_norm=2)
-        meta_optimizer.step()
-        meta_query_losses.append(q_loss.item())
-    return np.mean(meta_query_losses)
-
-
-avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
-# 后期要用这个参数
 source_weights_ma_list = []
 source_weight_list = []
 train_emb_losses = []
@@ -1597,20 +1502,10 @@ for ep in range(num_epochs):
             "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
             (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
              cvscore_t, cvscore_mix))
-
-    avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
-    with torch.no_grad():
-        source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
-        source_weight_list.append(list(source_weights.cpu().numpy()))
-
-    if ep == 0:
-        source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
-    source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
-    if args.is_st_weight_static == 1:
-        time_score = args.time_score_weight
-        space_score = args.space_score_weight
-        source_weights_ma = space_score * source_weights_ma + time_score * torch.from_numpy(
-            time_weight[mask_virtual]).to(device)
+    time_score = args.time_score_weight
+    space_score = args.space_score_weight
+    source_weights_ma = time_score * torch.from_numpy(
+        time_weight[mask_virtual]).to(device)
     source_weights_ma_list.append(list(source_weights_ma.cpu().numpy()))
     weight = None if args.need_weight == 0 else source_weights_ma
     virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=weight, num_iters=args.pretrain_iter,
