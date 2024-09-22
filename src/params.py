@@ -89,7 +89,7 @@ def params():
     parser.add_argument("--scoring", type=int, default=1, help="score method")
     parser.add_argument("--time_meta", type=int, default=1, help="time_meta")
     parser.add_argument("--meta_batch_size", type=int, default=16, help="time_meta")
-    parser.add_argument("--is_st_weight_static", type=int, default=1, help="0不使用，1使用时序评分")
+    parser.add_argument("--is_st_weight_static", type=int, default=0, help="0不使用，1使用时序评分")
     parser.add_argument("--time_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
     parser.add_argument("--space_score_weight", type=float, default=1.0, help="0不使用，1使用时序评分")
     parser.add_argument("--node_domain_adapt", type=str, default="MMD", help="在MMD和adversarial选择")
@@ -159,6 +159,7 @@ def params():
     parser.add_argument("--normal", type=int, default=1)
     parser.add_argument("--meta_ep", type=int, default=5)
     parser.add_argument("--test_ep", type=int, default=50)
+    parser.add_argument("--mask_feature", type=int, default=0)
     args = parser.parse_args()
 
     if args.seed != -1:
