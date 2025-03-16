@@ -16,9 +16,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from PaperCrawlerUtil.common_util import *
-from PaperCrawlerUtil.constant import *
-from PaperCrawlerUtil.crawler_util import *
+
 from dgl.nn import GATConv
 from dtaidistance import dtw
 from sklearn.feature_extraction.text import TfidfTransformer
