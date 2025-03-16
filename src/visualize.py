@@ -5,7 +5,7 @@
 # @Software: PyCharm
 # @Email   : liwudi@liwudi.fun
 # @Info    : visualize
-from PaperCrawlerUtil.common_util import *
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from random import random
