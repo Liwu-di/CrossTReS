@@ -144,7 +144,7 @@ if args.need_third == 1:
     lng_source3, lat_source3 = source_data3.shape[1], source_data3.shape[2]
     mask_source3 = source_data3.sum(0) > 0
     th_mask_source3 = torch.Tensor(mask_source3.reshape(1, lng_source3, lat_source3)).to(device)
-    print("%d valid regions in source3" % np.sum(mask_source3))
+
     # 按照百分比分配标签
     source_emb_label3 = masked_percentile_label(source_data3.sum(0).reshape(-1), mask_source3.reshape(-1))
     lag = [-6, -5, -4, -3, -2, -1]
@@ -172,22 +172,22 @@ if args.need_third == 1:
     source_s_adj3 = add_self_loop(source_s_adj3)
     source_t_adj3 = add_self_loop(source_d_adj3)
     source_od_adj3 = add_self_loop(source_od_adj3)
-    print("Source graphs3: ")
-    print("prox_adj3: %d nodes, %d edges" % (source_prox_adj3.shape[0], np.sum(source_prox_adj3)))
-    print("road adj3: %d nodes, %d edges" % (source_road_adj3.shape[0], np.sum(source_road_adj3 > 0)))
-    print("poi_adj3, %d nodes, %d edges" % (source_poi_adj3.shape[0], np.sum(source_poi_adj3 > 0)))
-    print("s_adj3, %d nodes, %d edges" % (source_s_adj3.shape[0], np.sum(source_s_adj3 > 0)))
-    print("d_adj3, %d nodes, %d edges" % (source_d_adj3.shape[0], np.sum(source_d_adj3 > 0)))
-    print()
+
+
+
+
+
+
+
     source_graphs3 = adjs_to_graphs([source_prox_adj3, source_road_adj3, source_poi_adj3, source_s_adj3, source_d_adj3])
     for i in range(len(source_graphs3)):
         source_graphs3[i] = source_graphs3[i].to(device)
     source_edges3, source_edge_labels3 = graphs_to_edge_labels(source_graphs3)
 args.need_geo_weight = 1
 if args.need_geo_weight == 1:
-    print("============================")
-    print("=======use geo score========")
-    print("============================")
+
+
+
     path2 = "./geo_weight/geo_weight{}_{}_{}_{}_{}.npy"
     geo_weight1 = np.load(path2.format(scity, tcity, datatype, dataname, args.data_amount))
     geo_weight2 = np.load(path2.format(scity2, tcity, datatype, dataname, args.data_amount))
@@ -266,7 +266,7 @@ if args.use_linked_region == 0:
             [idx_1d22d(s3_time_weight.argsort()[-i], (source_data3.shape[1], source_data3.shape[2])) for i in
              range(s3_amont)])
 
-    print("s1 r = {} s2 r = {} s3 r = {}".format(str(len(s1_regions)), str(len(s2_regions)), str(len(s3_regions))))
+
 
     s1_regions_, s2_regions_, s3_regions_ = [], [], []
     np_3_3 = []
@@ -370,7 +370,7 @@ if args.use_linked_region == 0:
 
 
     shape = crack(len(np_3_3) * 9)
-    print("virtual shape {}".format(str(shape)))
+
     virtual_city = np.zeros((time_threshold, shape[0], shape[1]))
     virtual_poi = np.zeros((shape[0], shape[1], 14))
     virtual_source_coord = np.zeros((shape[0], shape[1], 3))
@@ -488,7 +488,7 @@ elif args.use_linked_region == 1:
                     count += 1
                     coord_list.extend(dfs(mask_t1, i, j))
                     city_regions.append(coord_list)
-        print("连通域的数量：{}".format(str(count)))
+
         linked_regions = np.zeros(mask_t1.shape)
         for i, x in enumerate(city_regions):
             for j in x:
@@ -536,7 +536,7 @@ elif args.use_linked_region == 1:
                     if i[0] - 1 <= p <= i[1] + 1 and i[2] - 1 <= q <= i[3] + 1 and i[5] == True:
                         linked_regions[p][q] = ccc
             ccc += 1
-        print("排除包含关系之后连通域数量：{}".format(str(ccc - 1)))
+
         if need_graph:
             fig = sns.heatmap(linked_regions, annot=True)
             heatmap = fig.get_figure()
@@ -563,8 +563,8 @@ elif args.use_linked_region == 1:
     boxes3, linked_regions_range3 = [], []
     if args.need_third == 1:
         boxes3, linked_regions_range3 = calculate_linked_regions(s3_time_weight, False, args.s3_rate)
-    print(boxes1, boxes2, boxes3)
-    print(linked_regions_range1, linked_regions_range2, linked_regions_range3)
+
+
 
     from ph import phspprg, phsppog
     from visualize import visualize
@@ -600,8 +600,8 @@ elif args.use_linked_region == 1:
             sum_min = height + width
     height, rectangles = phspprg(width_min, boxes)
     # visualize(width_min, height, rectangles)
-    print("The width for min height is {}".format(str(width_min)))
-    print("The height is: {}".format(height))
+
+
     width = int(width_min)
     height = int(height)
 
@@ -640,9 +640,9 @@ elif args.use_linked_region == 1:
             across_flag = True
         data = None
         data_poi = None
-        print(i)
-        print(res)
-        print(across_flag)
+
+
+
         if res[0] == 1:
             data = source_data
             data_poi = source_poi
@@ -668,7 +668,7 @@ elif args.use_linked_region == 1:
                     virtual_poi[i.x + p, i.y + q, :] = data_poi[res[1] + p, res[3] + q, :]
                     test_mask[i.x + p, i.y + q] = 1
 
-    print()
+
     # import seaborn as sns
     #
     # fig = sns.heatmap(test_mask)
@@ -710,7 +710,7 @@ elif args.use_linked_region == 1:
                 virtual_road[i][j] = road[c][d]
     for i in range(virtual_road.shape[0]):
         virtual_road[i][i] = 1
-    print()
+
 elif args.use_linked_region == 2:
     # =========================================
     # 这里使用已经生成好的DTW进行筛选重要节点
@@ -783,7 +783,7 @@ elif args.use_linked_region == 2:
                     count += 1
                     coord_list.extend(dfs(mask_t1, i, j))
                     city_regions.append(coord_list)
-        print("连通域的数量：{}".format(str(count)))
+
         linked_regions = np.zeros(mask_t1.shape)
         for i, x in enumerate(city_regions):
             for j in x:
@@ -831,7 +831,7 @@ elif args.use_linked_region == 2:
                     if i[0] - 1 <= p <= i[1] + 1 and i[2] - 1 <= q <= i[3] + 1 and i[5] == True:
                         linked_regions[p][q] = ccc
             ccc += 1
-        print("排除包含关系之后连通域数量：{}".format(str(ccc - 1)))
+
         if need_graph:
             fig = sns.heatmap(linked_regions, annot=True)
             heatmap = fig.get_figure()
@@ -934,7 +934,7 @@ elif args.use_linked_region == 2:
 
 
     shape = crack(len(np_3_3) * 9)
-    print("virtual shape {}".format(str(shape)))
+
     virtual_city = np.zeros((time_threshold, shape[0], shape[1]))
     virtual_poi = np.zeros((shape[0], shape[1], 14))
     virtual_source_coord = np.zeros((shape[0], shape[1], 3))
@@ -994,7 +994,7 @@ if args.mask == 0:
 else:
     mask_virtual = virtual_city.sum(0) >= -1
 th_mask_virtual = torch.Tensor(mask_virtual.reshape(1, lng_virtual, lat_virtual)).to(device)
-print("%d valid regions in virtual" % np.sum(mask_virtual))
+
 virtual_emb_label = masked_percentile_label(virtual_city.sum(0).reshape(-1), mask_virtual.reshape(-1))
 lag = [-6, -5, -4, -3, -2, -1]
 virtual_city, virtual_max, virtual_min = min_max_normalize(virtual_city)
@@ -1031,15 +1031,15 @@ virtual_s_adj, virtual_d_adj, virtual_od_adj = s_adj, d_adj, virtual_od
 virtual_s_adj = add_self_loop(virtual_s_adj)
 virtual_d_adj = add_self_loop(virtual_d_adj)
 virtual_od_adj = add_self_loop(virtual_od_adj)
-print()
 
-print("virtual graphs: ")
-print("virtual_poi_adj, %d nodes, %d edges" % (virtual_poi_adj.shape[0], np.sum(virtual_poi_adj > 0)))
-print("prox_adj3: %d nodes, %d edges" % (virtual_prox_adj.shape[0], np.sum(virtual_prox_adj)))
-print("road adj3: %d nodes, %d edges" % (virtual_road_adj.shape[0], np.sum(virtual_road_adj > 0)))
-print("s_adj3, %d nodes, %d edges" % (virtual_s_adj.shape[0], np.sum(virtual_s_adj > 0)))
-print("d_adj3, %d nodes, %d edges" % (virtual_d_adj.shape[0], np.sum(virtual_d_adj > 0)))
-print()
+
+
+
+
+
+
+
+
 
 virtual_graphs = adjs_to_graphs([virtual_prox_adj, virtual_road_adj, virtual_poi_adj, virtual_s_adj, virtual_d_adj])
 for i in range(len(virtual_graphs)):
@@ -1099,11 +1099,11 @@ if args.model == 'STResNet':
     net = STResNet(len(lag), 1, 3).to(device)
 elif args.model == 'STNet_nobn':
     net = STNet_nobn(1, 3, th_mask_target, sigmoid_out=True).to(device)
-    print(net)
+
     nets = STNet_nobn(1, 3, th_mask_target, sigmoid_out=True)
 elif args.model == 'STNet':
     net = STNet(1, 3, th_mask_target).to(device)
-    print(net)
+
 
 
 def get_parameter_number(model):
@@ -1112,13 +1112,6 @@ def get_parameter_number(model):
     return trainable_num
 
 
-print(get_parameter_number(nets) + get_parameter_number(mvgat) + get_parameter_number(fusion) + get_parameter_number(
-    scoring) + get_parameter_number(edge_disc))
-print(get_parameter_number(mvgat))
-print(get_parameter_number(fusion))
-print(get_parameter_number(scoring))
-print(get_parameter_number(edge_disc))
-print(get_parameter_number(nets))
 
 # summary(net,(1,6,21,20))
 
@@ -1426,9 +1419,7 @@ if args.node_adapt == "DT":
     # plt.legend()
     # plt.show()
 
-    print("============================")
-    print("训练DT网络结束")
-    print("============================")
+
 
 
 def train_emb_epoch2():
@@ -1498,8 +1489,7 @@ for emb_ep in range(pretrain_emb_epoch):
     emb_losses.append(loss_emb_)
     mmd_losses.append(loss_mmd_)
     edge_losses.append(loss_et_)
-print("[%.2fs]Pretrain embeddings for %d epochs, average emb loss %.4f, node loss %.4f, edge loss %.4f" % (
-    time.time() - start_time, pretrain_emb_epoch, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses)))
+
 with torch.no_grad():
     views = mvgat(virtual_graphs, torch.Tensor(virtual_norm_poi).to(device))
     # 融合模块指的是把多图的特征融合
@@ -1519,9 +1509,7 @@ emb_t = fused_emb_t.cpu().numpy()[mask_target.reshape(-1)]
 logreg = LogisticRegression(max_iter=500)
 cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
 cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
-print("[%.2fs]Pretraining embedding, source cvscore %.4f, target cvscore %.4f" % \
-      (time.time() - start_time, cvscore_s, cvscore_t))
-print()
+
 
 
 def net_fix(source, y, weight, mask, fast_weights, bn_vars):
@@ -1739,10 +1727,6 @@ for ep in range(num_epochs):
         cvscore_s = cross_validate(logreg, emb_s, virtual_emb_label)['test_score'].mean()
         cvscore_t = cross_validate(logreg, emb_t, target_emb_label)['test_score'].mean()
         cvscore_mix = cross_validate(logreg, mix_embs, mix_labels)['test_score'].mean()
-        print(
-            "[%.2fs]Epoch %d, embedding loss %.4f, mmd loss %.4f, edge loss %.4f, source cvscore %.4f, target cvscore %.4f, mixcvscore %.4f" % \
-            (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
-             cvscore_t, cvscore_mix))
 
     if args.need_weight == 1:
         avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
@@ -1767,16 +1751,13 @@ for ep in range(num_epochs):
     virtual_source_loss = train_epoch(net, virtual_loader, pred_optimizer, weights=weight, num_iters=args.pretrain_iter,
                                       mask=th_mask_virtual)
     avg_target_loss = evaluate(net, target_train_loader, spatial_mask=th_mask_target)[0]
-    print("[%.2fs]Epoch %d, virtual_source_loss %.4f" % (time.time() - start_time, ep, np.mean(virtual_source_loss)))
-    print("[%.2fs]Epoch %d, target_loss %.4f" % (time.time() - start_time, ep, avg_target_loss))
+
     if source_weights_ma.mean() < 0.005:
         # stop pre-training
         break
     net.eval()
     rmse_val, mae_val, target_val_losses, _ = evaluate(net, target_val_loader, spatial_mask=th_mask_target)
-    print("Epoch %d, target validation rmse %.4f, mae %.4f" % (
-        ep, rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
-    print()
+
     target_validation_mae.append(mae_val * (max_val - min_val))
     target_validation_rmse.append(rmse_val * (max_val - min_val))
     sums = 0
@@ -1799,7 +1780,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     # fine-tuning
     net.train()
     avg_loss = train_epoch(net, target_train_loader, pred_optimizer, mask=th_mask_target)
-    print('[%.2fs]Epoch %d, target pred loss %.4f' % (time.time() - start_time, ep, np.mean(avg_loss)))
+
     writer.add_scalar("target pred loss", np.mean(avg_loss), ep - num_epochs)
     target_pred_loss.append(np.mean(avg_loss))
     net.eval()
@@ -1821,8 +1802,8 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         best_test_mae = mae_test
         best_test_mape = test_mape
         save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
-        print("Update best test...")
-    print("validation rmse %.4f, mae %.4f" % (rmse_val * (max_val - min_val), mae_val * (max_val - min_val)))
+
+
     print("test rmse %.4f, mae %.4f, mape %.4f" % (
     rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
     writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
