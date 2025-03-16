@@ -1263,9 +1263,9 @@ def forward_emb(graphs_, in_feat_, od_adj_, poi_cos_):
     # start和destination相乘求出记录预测s和d
     recons_sd = torch.matmul(s_emb, d_emb.transpose(0, 1))
     # 注意dim维度0和1分别求s和d
-    pred_d = torch.print(torch.softmax(recons_sd, dim=1) + 1e-5)
+    pred_d = torch.log(torch.softmax(recons_sd, dim=1) + 1e-5)
     loss_d = (torch.Tensor(od_adj_).to(device) * pred_d).mean()
-    pred_s = torch.print(torch.softmax(recons_sd, dim=0) + 1e-5)
+    pred_s = torch.log(torch.softmax(recons_sd, dim=0) + 1e-5)
     loss_s = (torch.Tensor(od_adj_).to(device) * pred_s).mean()
     # poi预测求差，loss
     poi_sim = torch.matmul(poi_emb, poi_emb.transpose(0, 1))
@@ -1466,10 +1466,10 @@ def train_emb_epoch2():
     source_batch_labels = torch.Tensor(virtual_edge_labels[source_batch_edges]).to(device)
     target_batch_labels = torch.Tensor(target_edge_labels[target_batch_edges]).to(device)
     # -（label*print(sigmod(pred)+0.000001)) + (1-label)*print(1-sigmod+0.000001) sum mean
-    loss_et_source = -((source_batch_labels * torch.print(torch.sigmoid(pred_source) + 1e-6)) + (
-            1 - source_batch_labels) * torch.print(1 - torch.sigmoid(pred_source) + 1e-6)).sum(1).mean()
-    loss_et_target = -((target_batch_labels * torch.print(torch.sigmoid(pred_target) + 1e-6)) + (
-            1 - target_batch_labels) * torch.print(1 - torch.sigmoid(pred_target) + 1e-6)).sum(1).mean()
+    loss_et_source = -((source_batch_labels * torch.log(torch.sigmoid(pred_source) + 1e-6)) + (
+            1 - source_batch_labels) * torch.log(1 - torch.sigmoid(pred_source) + 1e-6)).sum(1).mean()
+    loss_et_target = -((target_batch_labels * torch.log(torch.sigmoid(pred_target) + 1e-6)) + (
+            1 - target_batch_labels) * torch.log(1 - torch.sigmoid(pred_target) + 1e-6)).sum(1).mean()
     loss_et = loss_et_source + loss_et_target
 
     emb_optimizer.zero_grad()
