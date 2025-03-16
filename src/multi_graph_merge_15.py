@@ -1635,7 +1635,7 @@ writer = SummaryWriter("log-{}-batch-{}-name-{}-type-{}-model-{}-amount-{}-topk-
                        format("多城市{},{} and {}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
                               args.batch_size,
                               args.dataname,
-                              args.datatype, args.model, args.data_amount, args.topk, get_timestamp(split="-")))
+                              args.datatype, args.model, args.data_amount, args.topk, time.time()))
 
 if args.is_st_weight_static == 1:
     time_weight = np.zeros((virtual_city.shape[1], virtual_city.shape[2], target_data.shape[1] * target_data.shape[2]))
@@ -1658,7 +1658,7 @@ root_dir = local_path_generate(
         "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
             "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
             args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-            args.topk, get_timestamp(split="-")
+            args.topk, time.time()
         )
     ), create_folder_only=True)
 for ep in range(num_epochs):
@@ -1748,7 +1748,7 @@ root_dir = local_path_generate(
         "{}-batch-{}-{}-{}-{}-amount-{}-topk-{}-time-{}".format(
             "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
             args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-            args.topk, get_timestamp(split="-")
+            args.topk, time.time()
         )
     ), create_folder_only=True)
 for ep in range(num_epochs, num_tuine_epochs + num_epochs):
