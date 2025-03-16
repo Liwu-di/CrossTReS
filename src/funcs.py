@@ -315,7 +315,8 @@ def get_weights_bn_vars(module):
     return fast_weights, bn_vars
 
 
-def load_process_data(args, p_bar):
+# load_process_data(args, p_bar):
+def load_process_data(args):
     os.environ['CUDA_VISIBLE_DEVICES'] = str(args.gpu)
     gpu_available = torch.cuda.is_available()
     if gpu_available:
@@ -332,7 +333,7 @@ def load_process_data(args, p_bar):
     start_time = time.time()
     log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
         (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
-    p_bar.process(1, 1, 5)
+
     # Load spatio temporal data
     # (8784, 21, 20)
     # 8784 = 366 * 24
@@ -365,7 +366,7 @@ def load_process_data(args, p_bar):
     th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
     log("%d valid regions in source" % np.sum(mask_source2))
 
-    p_bar.process(2, 1, 5)
+    #p_bar.process(2, 1, 5)
     # 按照百分比分配标签
     source_emb_label = masked_percentile_label(source_data.sum(0).reshape(-1), mask_source.reshape(-1))
     bak_source_data = copy.deepcopy(source_data)
@@ -394,7 +395,7 @@ def load_process_data(args, p_bar):
     source_y2 = np.concatenate([source_train_y2, source_val_y2, source_test_y2], axis=0)
     target_train_x, target_train_y, target_val_x, target_val_y, target_test_x, target_test_y = split_x_y(target_data,
                                                                                                          lag)
-    p_bar.process(3, 1, 5)
+    #p_bar.process(3, 1, 5)
     if args.data_amount != 0:
         # 负号表示从倒数方向数，
         # i.e.
@@ -514,12 +515,12 @@ def load_process_data(args, p_bar):
     source_edges, source_edge_labels = graphs_to_edge_labels(source_graphs)
     source_edges2, source_edge_labels2 = graphs_to_edge_labels(source_graphs2)
     target_edges, target_edge_labels = graphs_to_edge_labels(target_graphs)
-    p_bar.process(4, 1, 5)
+    #p_bar.process(4, 1, 5)
     if args.normal == 0:
         source_data = bak_source_data
         source_data2 = bak_source_data2
         target_data = bak_target_data
-    return source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
+    return (source_emb_label2, source_t_adj, source_edge_labels2, lag, source_poi, source_data2, \
            source_train_y, source_test_x, source_val_x, source_poi_adj, source_poi_adj2, dataname, target_train_x, \
            th_mask_source2, th_mask_source, target_test_loader, target_poi, target_od_adj, \
            source_dataset, mask_source, target_graphs, target_val_dataset, max_val, scity2, smin2, \
@@ -536,7 +537,8 @@ def load_process_data(args, p_bar):
            target_norm_poi, source_norm_poi, source_train_x, datatype, source_val_y, mask_target, \
            source_train_y2, source_norm_poi2, source_s_adj2, num_epochs, lat_source2, min_val, target_edges, \
            source_val_y2, target_prox_adj, source_loader2, source_test_y, source_d_adj, \
-           target_train_y, th_mask_target, device, p_bar
+           target_train_y, th_mask_target, device)
+            #p_bar)
 
 
 class Road(nn.Module):
