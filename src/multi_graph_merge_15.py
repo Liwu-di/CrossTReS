@@ -1613,8 +1613,8 @@ def meta_train_epoch(s_embs, t_embs):
         meta_query_losses.append(q_loss.item())
     return np.mean(meta_query_losses)
 
-
-avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
+if args.need_weight == 1:
+    avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
 # 后期要用这个参数
 source_weights_ma_list = []
 source_weight_list = []
@@ -1744,10 +1744,11 @@ for ep in range(num_epochs):
             (time.time() - start_time, ep, np.mean(emb_losses), np.mean(mmd_losses), np.mean(edge_losses), cvscore_s,
              cvscore_t, cvscore_mix))
 
-    avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
-    with torch.no_grad():
-        source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
-        source_weight_list.append(list(source_weights.cpu().numpy()))
+    if args.need_weight == 1:
+        avg_q_loss = meta_train_epoch(fused_emb_s, fused_emb_t)
+        with torch.no_grad():
+            source_weights = scoring(fused_emb_s, fused_emb_t, th_mask_virtual, th_mask_target)
+            source_weight_list.append(list(source_weights.cpu().numpy()))
 
     if ep == 0:
         source_weights_ma = torch.ones_like(source_weights, device=device, requires_grad=False)
