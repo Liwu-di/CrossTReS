@@ -5,7 +5,7 @@
 # @Software: PyCharm
 # @Email   ：liwudi@liwudi.fun
 import copy
-from typing import Dict
+from typing import Dict, List
 
 import numpy as np
 import argparse
@@ -329,7 +329,7 @@ def load_process_data(args):
     num_epochs = args.num_epochs
     num_tuine_epochs = args.num_tuine_epochs
     start_time = time.time()
-    log("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
+    print("Running CrossTReS, from %s and %s to %s, %s %s experiments, with %d days of data, on %s model" % \
         (scity, scity2, tcity, dataname, datatype, args.data_amount, args.model))
 
     # Load spatio temporal data
@@ -344,25 +344,25 @@ def load_process_data(args):
     mask_target = target_data.sum(0) > 0
     # reshape （21， 20） -》 （1， 21， 20）
     th_mask_target = torch.Tensor(mask_target.reshape(1, lng_target, lat_target)).to(device)
-    log("%d valid regions in target" % np.sum(mask_target))
+    print("%d valid regions in target" % np.sum(mask_target))
     # (（21， 20）-> 420, （21， 20）-> 420)
     target_emb_label = masked_percentile_label(target_data.sum(0).reshape(-1), mask_target.reshape(-1))
     # (8784, 20, 23)
     source_data = np.load("../data/%s/%s%s_%s.npy" % (scity, dataname, scity, datatype))
-    log(source_data.shape)
+    print(source_data.shape)
     # (20, 23)
     lng_source, lat_source = source_data.shape[1], source_data.shape[2]
     mask_source = source_data.sum(0) > 0
     # mask -> th_mask = (20, 23) -> (1, 20, 23)
     th_mask_source = torch.Tensor(mask_source.reshape(1, lng_source, lat_source)).to(device)
-    log("%d valid regions in source" % np.sum(mask_source))
+    print("%d valid regions in source" % np.sum(mask_source))
 
     source_data2 = np.load("../data/%s/%s%s_%s.npy" % (scity2, dataname, scity2, datatype))
-    log(source_data2.shape)
+    print(source_data2.shape)
     lng_source2, lat_source2 = source_data2.shape[1], source_data2.shape[2]
     mask_source2 = source_data2.sum(0) > 0
     th_mask_source2 = torch.Tensor(mask_source2.reshape(1, lng_source2, lat_source2)).to(device)
-    log("%d valid regions in source" % np.sum(mask_source2))
+    print("%d valid regions in source" % np.sum(mask_source2))
 
     #p_bar.process(2, 1, 5)
     # 按照百分比分配标签
@@ -410,13 +410,13 @@ def load_process_data(args):
         source_y = source_y[-30 * 6 * 24:, :, :, :]
         source_x2 = source_x2[-30 * 6 * 24:, :, :, :]
         source_y2 = source_y2[-30 * 6 * 24:, :, :, :]
-    log("Source split to: x %s, y %s" % (str(source_x.shape), str(source_y.shape)))
-    # log("val_x %s, val_y %s" % (str(source_val_x.shape), str(source_val_y.shape)))
-    # log("test_x %s, test_y %s" % (str(source_test_x.shape), str(source_test_y.shape)))
-    log("Source2 split to: x %s, y %s" % (str(source_x2.shape), str(source_y2.shape)))
-    log("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(target_train_y.shape)))
-    log("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
-    log("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
+    print("Source split to: x %s, y %s" % (str(source_x.shape), str(source_y.shape)))
+    # print("val_x %s, val_y %s" % (str(source_val_x.shape), str(source_val_y.shape)))
+    # print("test_x %s, test_y %s" % (str(source_test_x.shape), str(source_test_y.shape)))
+    print("Source2 split to: x %s, y %s" % (str(source_x2.shape), str(source_y2.shape)))
+    print("Target split to: train_x %s, train_y %s" % (str(target_train_x.shape), str(target_train_y.shape)))
+    print("val_x %s, val_y %s" % (str(target_val_x.shape), str(target_val_y.shape)))
+    print("test_x %s, test_y %s" % (str(target_test_x.shape), str(target_test_y.shape)))
 
     # 这些代码 numpy -> Tensor -> TensorDataset -> DataLoader
     target_train_dataset = TensorDataset(torch.Tensor(target_train_x), torch.Tensor(target_train_y))
@@ -481,27 +481,27 @@ def load_process_data(args):
     target_s_adj = add_self_loop(target_s_adj)
     target_t_adj = add_self_loop(target_d_adj)
     target_od_adj = add_self_loop(target_od_adj)
-    log("Source graphs: ")
-    log("prox_adj: %d nodes, %d edges" % (source_prox_adj.shape[0], np.sum(source_prox_adj)))
-    log("road adj: %d nodes, %d edges" % (source_road_adj.shape[0], np.sum(source_road_adj > 0)))
-    log("poi_adj, %d nodes, %d edges" % (source_poi_adj.shape[0], np.sum(source_poi_adj > 0)))
-    log("s_adj, %d nodes, %d edges" % (source_s_adj.shape[0], np.sum(source_s_adj > 0)))
-    log("d_adj, %d nodes, %d edges" % (source_d_adj.shape[0], np.sum(source_d_adj > 0)))
-    log()
-    log("Source2 graphs: ")
-    log("prox_adj: %d nodes, %d edges" % (source_prox_adj2.shape[0], np.sum(source_prox_adj2)))
-    log("road adj: %d nodes, %d edges" % (source_road_adj2.shape[0], np.sum(source_road_adj2 > 0)))
-    log("poi_adj, %d nodes, %d edges" % (source_poi_adj2.shape[0], np.sum(source_poi_adj2 > 0)))
-    log("s_adj, %d nodes, %d edges" % (source_s_adj2.shape[0], np.sum(source_s_adj2 > 0)))
-    log("d_adj, %d nodes, %d edges" % (source_d_adj2.shape[0], np.sum(source_d_adj2 > 0)))
-    log()
-    log("Target graphs:")
-    log("prox_adj: %d nodes, %d edges" % (target_prox_adj.shape[0], np.sum(target_prox_adj)))
-    log("road adj: %d nodes, %d edges" % (target_road_adj.shape[0], np.sum(target_road_adj > 0)))
-    log("poi_adj, %d nodes, %d edges" % (target_poi_adj.shape[0], np.sum(target_poi_adj > 0)))
-    log("s_adj, %d nodes, %d edges" % (target_s_adj.shape[0], np.sum(target_s_adj > 0)))
-    log("d_adj, %d nodes, %d edges" % (target_d_adj.shape[0], np.sum(target_d_adj > 0)))
-    log()
+    print("Source graphs: ")
+    print("prox_adj: %d nodes, %d edges" % (source_prox_adj.shape[0], np.sum(source_prox_adj)))
+    print("road adj: %d nodes, %d edges" % (source_road_adj.shape[0], np.sum(source_road_adj > 0)))
+    print("poi_adj, %d nodes, %d edges" % (source_poi_adj.shape[0], np.sum(source_poi_adj > 0)))
+    print("s_adj, %d nodes, %d edges" % (source_s_adj.shape[0], np.sum(source_s_adj > 0)))
+    print("d_adj, %d nodes, %d edges" % (source_d_adj.shape[0], np.sum(source_d_adj > 0)))
+    print()
+    print("Source2 graphs: ")
+    print("prox_adj: %d nodes, %d edges" % (source_prox_adj2.shape[0], np.sum(source_prox_adj2)))
+    print("road adj: %d nodes, %d edges" % (source_road_adj2.shape[0], np.sum(source_road_adj2 > 0)))
+    print("poi_adj, %d nodes, %d edges" % (source_poi_adj2.shape[0], np.sum(source_poi_adj2 > 0)))
+    print("s_adj, %d nodes, %d edges" % (source_s_adj2.shape[0], np.sum(source_s_adj2 > 0)))
+    print("d_adj, %d nodes, %d edges" % (source_d_adj2.shape[0], np.sum(source_d_adj2 > 0)))
+    print()
+    print("Target graphs:")
+    print("prox_adj: %d nodes, %d edges" % (target_prox_adj.shape[0], np.sum(target_prox_adj)))
+    print("road adj: %d nodes, %d edges" % (target_road_adj.shape[0], np.sum(target_road_adj > 0)))
+    print("poi_adj, %d nodes, %d edges" % (target_poi_adj.shape[0], np.sum(target_poi_adj > 0)))
+    print("s_adj, %d nodes, %d edges" % (target_s_adj.shape[0], np.sum(target_s_adj > 0)))
+    print("d_adj, %d nodes, %d edges" % (target_d_adj.shape[0], np.sum(target_d_adj > 0)))
+    print()
     source_graphs = adjs_to_graphs([source_prox_adj, source_road_adj, source_poi_adj, source_s_adj, source_d_adj])
     source_graphs2 = adjs_to_graphs([source_prox_adj2, source_road_adj2, source_poi_adj2, source_s_adj2, source_d_adj2])
     target_graphs = adjs_to_graphs([target_prox_adj, target_road_adj, target_poi_adj, target_s_adj, target_d_adj])
@@ -656,7 +656,7 @@ def yield_8_near(i, ranges):
 
 
 def save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir):
-    log(" ============== save model ================ ")
+    print(" ============== save model ================ ")
     torch.save(net, root_dir + "/net.pth")
     torch.save(mvgat, root_dir + "/mvgat.pth")
     torch.save(fusion, root_dir + "/fusion.pth")
