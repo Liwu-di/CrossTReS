@@ -160,6 +160,7 @@ def params():
     parser.add_argument("--meta_ep", type=int, default=5)
     parser.add_argument("--test_ep", type=int, default=50)
     parser.add_argument("--mask_feature", type=int, default=0)
+    parser.add_argument("--mask", type=int, default=0)
     args = parser.parse_args()
 
     if args.seed != -1:

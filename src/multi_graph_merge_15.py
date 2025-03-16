@@ -989,7 +989,10 @@ long_term_save["virtual_road"] = virtual_road
 long_term_save["virtual_od"] = virtual_od
 virtual_poi = virtual_poi.reshape((virtual_city.shape[1] * virtual_city.shape[2], 14))
 lng_virtual, lat_virtual = virtual_city.shape[1], virtual_city.shape[2]
-mask_virtual = virtual_city.sum(0) > 0
+if args.mask == 0:
+    mask_virtual = virtual_city.sum(0) > 0
+else:
+    mask_virtual = virtual_city.sum(0) >= -1
 th_mask_virtual = torch.Tensor(mask_virtual.reshape(1, lng_virtual, lat_virtual)).to(device)
 print("%d valid regions in virtual" % np.sum(mask_virtual))
 virtual_emb_label = masked_percentile_label(virtual_city.sum(0).reshape(-1), mask_virtual.reshape(-1))
