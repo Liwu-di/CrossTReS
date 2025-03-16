@@ -1212,7 +1212,7 @@ def train_epoch(net_, loader_, optimizer_, weights=None, mask=None, num_iters=No
         x = x.to(device)
         y = y.to(device)
         out = net_(x, spatial_mask=mask.bool())
-        stat(net, x)
+
 
         if len(out.shape) == 4:  # STResNet
             eff_batch_size = y.shape[0]
