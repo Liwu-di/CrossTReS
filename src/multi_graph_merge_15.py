@@ -1755,7 +1755,8 @@ for ep in range(num_epochs):
             source_weights_ma = torch.ones_like(source_weights.view(-1), device=device, requires_grad=False)
         else:
             source_weights_ma = torch.ones_like(th_mask_virtual.reshape(-1), device=device, requires_grad=False)
-    source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
+    if  args.need_weight == 1:
+        source_weights_ma = ma_param * source_weights_ma + (1 - ma_param) * source_weights
     if args.is_st_weight_static == 1:
         time_score = args.time_score_weight
         space_score = args.space_score_weight
