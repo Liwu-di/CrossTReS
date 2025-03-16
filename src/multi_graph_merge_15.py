@@ -1655,6 +1655,42 @@ if args.is_st_weight_static == 1:
 
     time_weight, time_weight_max1, time_weight_min1 = min_max_normalize(time_weight)
     time_weight, _, _ = min_max_normalize(time_weight.sum(axis=2))
+import sys
+def local_path_generate(folder_name: str = "", file_name: str = "",
+                        suffix: str = ".pdf", need_log: bool = True,
+                        create_folder_only: bool = False) -> str:
+    """
+    create a folder whose name is folder_name in folder which code in if folder_name
+    is not exist. and then concat pdf_name to create file path.
+    :param create_folder_only: 是否只创建文件夹
+    :param need_log: 是否需要日志，不影响重要信息输出
+    :param suffix: 自动命名时文件后缀
+    :param folder_name: 待创建的文件夹名称
+    :param file_name: 文件名称，带后缀格式
+    :return: 返回文件绝对路径
+    """
+    if folder_name is None or len(folder_name) == 0:
+        folder_name = os.path.abspath(".")
+    try:
+        if os.path.exists(folder_name):
+            if need_log:
+                print("文件夹{}存在".format(folder_name))
+        else:
+            os.makedirs(folder_name)
+    except Exception as e:
+        print("创建文件夹{}失败".format(e), print_file=sys.stderr)
+        return ""
+    if create_folder_only:
+        return os.path.abspath(folder_name)
+    if len(file_name) == 0:
+        file_name = str(time.strftime("%H_%M_%S", time.localtime()))
+        file_name = file_name + str(random.randint(10000, 99999))
+        file_name = file_name + suffix
+    dir = os.path.abspath(folder_name)
+    work_path = os.path.join(dir, file_name)
+
+    return work_path
+
 
 root_dir = local_path_generate(
     "./model/pre/{}".format(
@@ -1815,15 +1851,6 @@ long_term_save["test_mae"] = test_mae
 print("Best test rmse %.4f, mae %.4f, mape %.4f" % (
 best_test_rmse * (max_val - min_val), best_test_mae * (max_val - min_val), best_test_mape * (max_val - min_val)))
 
-save_obj(long_term_save,
-         "./" + "data_{}.collection".format(
-             "{}-batch-{}-{}-{}-{}-amount-{}-time-{}".format(
-                 "多城市{},{}and{}-{}".format(args.scity, args.scity2, args.scity3, args.tcity),
-                 args.batch_size, args.dataname, args.datatype, args.model, args.data_amount,
-                 time.time()
-             )
-         )
-         )
 
 t2 = time.time()
 print(t2 - t1 - time2 + time1 - (time4 - time3) * 80)
