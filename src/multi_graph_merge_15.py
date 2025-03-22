@@ -1554,15 +1554,13 @@ def meta_train_epoch(s_embs, t_embs):
             pred_t = net.functional_forward(t_x, th_mask_target.bool(), fast_weights, bn_vars, bn_training=True)
             if len(pred_t.shape) == 4:  # STResNet
                 loss_t = ((pred_t - t_y) ** 2).view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # print(loss_source.shape)
+
                 loss_t = loss_t.mean(0).sum()
             elif len(pred_t.shape) == 3:  # STNet
                 t_y = t_y.view(args.batch_size, 1, -1)[:, :, th_mask_target.view(-1).bool()]
-                # print(t_y.shape)
+
                 loss_t = ((pred_t - t_y) ** 2)  # .view(1, 1, -1))
-                # print(loss_t.shape)
-                # print(loss_source.shape)
-                # print(source_weights.shape)
+
                 loss_t = loss_t.mean(0).sum()
             fast_loss = loss_t
             fast_losses.append(fast_loss.item())  #
@@ -1714,7 +1712,7 @@ for ep in range(num_epochs):
         fused_emb_t, _ = fusion(views)
     time4 = time.time()
     print(time4 - time3)
-    print("=================")
+
     if ep % 2 == 0:
         """
         每两个epoch显示一些数据
@@ -1804,8 +1802,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
         save_model(args, net, mvgat, fusion, scoring, edge_disc, root_dir)
 
 
-    print("test rmse %.4f, mae %.4f, mape %.4f" % (
-    rmse_test * (max_val - min_val), mae_test * (max_val - min_val), test_mape * (max_val - min_val)))
+
     writer.add_scalar("validation rmse", rmse_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("validation mae", mae_val * (max_val - min_val), ep - num_epochs)
     writer.add_scalar("test rmse", rmse_test * (max_val - min_val), ep - num_epochs)
@@ -1814,7 +1811,7 @@ for ep in range(num_epochs, num_tuine_epochs + num_epochs):
     validation_mae.append(mae_val * (max_val - min_val))
     test_rmse.append(rmse_test * (max_val - min_val))
     test_mae.append(mae_test * (max_val - min_val))
-    print()
+
 
 long_term_save["source_weights_ma_list"] = source_weights_ma_list
 long_term_save["source_weight_list"] = source_weight_list
